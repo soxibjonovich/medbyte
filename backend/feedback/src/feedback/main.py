@@ -1,0 +1,137 @@
+import os
+import uuid
+from contextlib import asynccontextmanager
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import urlencode
+
+from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Query, UploadFile, status
+
+from . import database_client, rabbitmq_client
+from .deps import get_current_user, require_admin
+from .schemas import Feedback, FeedbackTranscript, Sentiment
+
+AUDIO_STORAGE_DIR = Path(os.environ.get("AUDIO_STORAGE_DIR", "audio_uploads"))
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    AUDIO_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    database_client.init_client()
+    await rabbitmq_client.init_client()
+    yield
+    await rabbitmq_client.close_client()
+    await database_client.close_client()
+
+
+app = FastAPI(lifespan=lifespan)
+router = APIRouter(prefix="/api/feedback")
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
+async def _store_audio(audio_file: UploadFile) -> str:
+    suffix = Path(audio_file.filename or "").suffix
+    stored_name = f"{uuid.uuid4()}{suffix}"
+    destination = AUDIO_STORAGE_DIR / stored_name
+    with destination.open("wb") as out:
+        while chunk := await audio_file.read(1024 * 1024):
+            out.write(chunk)
+    return str(destination)
+
+
+@router.post("", response_model=Feedback, status_code=status.HTTP_201_CREATED)
+async def create_feedback(
+    appointment_id: int = Form(...),
+    rating: int = Form(..., ge=1, le=5),
+    tags: list[str] = Form(default=[]),
+    text_comment: str | None = Form(default=None, max_length=2000),
+    audio_file: UploadFile | None = None,
+    current_user: dict = Depends(get_current_user),
+):
+    appointment = await database_client.get_or_none(f"/appointments/{appointment_id}")
+    if appointment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="appointment not found")
+    if appointment["user_id"] != current_user["id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="not your appointment"
+        )
+
+    category_id = None
+    if appointment.get("doctor_id") is not None:
+        doctor = await database_client.get_or_none(f"/doctors/{appointment['doctor_id']}")
+        if doctor is not None:
+            category_id = doctor["medical_category_id"]
+
+    stored_audio_path = await _store_audio(audio_file) if audio_file is not None else None
+
+    created = await database_client.post(
+        "/feedback",
+        json={
+            "user_id": current_user["id"],
+            "appointment_id": appointment_id,
+            "hospital_id": appointment.get("hospital_id"),
+            "doctor_id": appointment.get("doctor_id"),
+            "category_id": category_id,
+            "rating": rating,
+            "tags": tags,
+            "text_comment": text_comment,
+            "audio_file": stored_audio_path,
+        },
+    )
+
+    if stored_audio_path is not None:
+        await rabbitmq_client.publish_stt_job(created["id"], stored_audio_path)
+
+    return created
+
+
+@router.get("/{feedback_id}", response_model=Feedback)
+async def get_feedback(feedback_id: int, current_user: dict = Depends(get_current_user)):
+    feedback = await database_client.get_or_none(f"/feedback/{feedback_id}")
+    if feedback is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="feedback not found")
+    if feedback["user_id"] != current_user["id"] and current_user["role"] != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not your feedback")
+    return feedback
+
+
+@router.get("", response_model=list[Feedback])
+async def list_feedback(
+    hospital_id: int | None = Query(default=None),
+    category_id: int | None = Query(default=None),
+    sentiment: Sentiment | None = Query(default=None),
+    date_from: datetime | None = Query(default=None),
+    date_to: datetime | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    _: dict = Depends(require_admin),
+):
+    params = {
+        k: v
+        for k, v in {
+            "hospital_id": hospital_id,
+            "category_id": category_id,
+            "sentiment": sentiment,
+            "date_from": date_from.isoformat() if date_from else None,
+            "date_to": date_to.isoformat() if date_to else None,
+            "limit": limit,
+            "offset": offset,
+        }.items()
+        if v is not None
+    }
+    return await database_client.get(f"/feedback?{urlencode(params)}")
+
+
+@router.get("/{feedback_id}/transcript", response_model=FeedbackTranscript)
+async def get_feedback_transcript(feedback_id: int, _: dict = Depends(require_admin)):
+    transcript = await database_client.get_or_none(f"/feedback/{feedback_id}/transcript")
+    if transcript is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="feedback not found")
+    return transcript
+
+
+app.include_router(router)

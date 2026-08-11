@@ -1,0 +1,132 @@
+x-build-context: &build-context
+  context: .
+
+x-healthcheck-8000: &healthcheck-8000
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+  interval: 5s
+  timeout: 5s
+  retries: 10
+
+x-depends-on-database: &depends-on-database
+  database:
+    condition: service_healthy
+
+x-depends-on-database-and-rabbitmq: &depends-on-database-and-rabbitmq
+  database:
+    condition: service_healthy
+  rabbitmq:
+    condition: service_healthy
+
+x-service-common: &service-common
+  environment: &common-env
+    DATABASE_SERVICE_URL: http://database:8005
+    JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+  depends_on: *depends-on-database
+  healthcheck: *healthcheck-8000
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: anonfeedback
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d anonfeedback"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  database:
+    build:
+      <<: *build-context
+      dockerfile: backend/database/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/anonfeedback
+    ports:
+      - "8005:8005"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8005/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth:
+    <<: *service-common
+    build:
+      <<: *build-context
+      dockerfile: backend/auth/Dockerfile
+    env_file:
+      - backend/auth/.env
+    environment:
+      <<: *common-env
+    ports:
+      - "8004:8000"
+
+  hospitals:
+    <<: *service-common
+    build:
+      <<: *build-context
+      dockerfile: backend/hospitals/Dockerfile
+    ports:
+      - "8006:8000"
+
+  admin:
+    <<: *service-common
+    build:
+      <<: *build-context
+      dockerfile: backend/admin/Dockerfile
+    ports:
+      - "8007:8000"
+
+  feedback:
+    <<: *service-common
+    build:
+      <<: *build-context
+      dockerfile: backend/feedback/Dockerfile
+    environment:
+      <<: *common-env
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      AUDIO_STORAGE_DIR: /data/audio
+    depends_on: *depends-on-database-and-rabbitmq
+    volumes:
+      - feedback_audio:/data/audio
+    ports:
+      - "8008:8000"
+
+  stt-worker:
+    <<: *service-common
+    build:
+      <<: *build-context
+      dockerfile: backend/stt-worker/Dockerfile
+    environment:
+      <<: *common-env
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      AUDIO_STORAGE_DIR: /data/audio
+      STT_API_URL: ${STT_API_URL:-}
+    depends_on: *depends-on-database-and-rabbitmq
+    volumes:
+      - feedback_audio:/data/audio:ro
+
+volumes:
+  db_data:
+  feedback_audio:
