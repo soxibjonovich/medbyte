@@ -1,13 +1,20 @@
+from contextlib import asynccontextmanager
+
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import User, get_session
-
-from . import google_auth, repository, schemas, security
+from . import database_client, google_auth, schemas, security
 from .deps import get_current_user
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    database_client.init_client()
+    yield
+    await database_client.close_client()
+
+
+app = FastAPI(lifespan=lifespan)
 router = APIRouter(prefix="/api/v1/auth")
 
 
@@ -21,55 +28,44 @@ async def health():
     response_model=schemas.TokenResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def register_new_user(
-    user: schemas.CreateUser, session: AsyncSession = Depends(get_session)
-):
-    if await repository.get_by_phone(session, user.phone) is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="phone already registered"
-        )
-    if user.email and await repository.get_by_email(session, user.email) is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="email already registered"
-        )
-
+async def register_new_user(user: schemas.CreateUser):
     password_hash = security.hash_password(user.password)
-    new_user = await repository.create_user(
-        session,
-        full_name=user.full_name,
-        phone=user.phone,
-        email=user.email,
-        password_hash=password_hash,
+    new_user = await database_client.post(
+        "/users",
+        json={
+            "full_name": user.full_name,
+            "phone": user.phone,
+            "email": user.email,
+            "password_hash": password_hash,
+        },
     )
 
-    token = security.create_access_token(new_user.id)
+    token = security.create_access_token(new_user["id"])
     return schemas.TokenResponse(
         access_token=token, user=schemas.UserResponse.model_validate(new_user)
     )
 
 
 @router.post("/login", response_model=schemas.TokenResponse)
-async def login_user(
-    credentials: schemas.LoginUser, session: AsyncSession = Depends(get_session)
-):
-    record = await repository.get_by_phone(session, credentials.phone)
+async def login_user(credentials: schemas.LoginUser):
+    record = await database_client.get_or_none(f"/users/by-phone/{credentials.phone}")
     if (
         record is None
-        or record.password_hash is None
-        or not security.verify_password(credentials.password, record.password_hash)
+        or record["password_hash"] is None
+        or not security.verify_password(credentials.password, record["password_hash"])
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid phone or password"
         )
 
-    token = security.create_access_token(record.id)
+    token = security.create_access_token(record["id"])
     return schemas.TokenResponse(
         access_token=token, user=schemas.UserResponse.model_validate(record)
     )
 
 
 @router.get("/me", response_model=schemas.UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
+async def get_me(current_user: dict = Depends(get_current_user)):
     return schemas.UserResponse.model_validate(current_user)
 
 
@@ -103,9 +99,7 @@ async def google_login():
 
 
 @router.get("/callback", response_model=schemas.TokenResponse)
-async def google_callback(
-    code: str, state: str, session: AsyncSession = Depends(get_session)
-):
+async def google_callback(code: str, state: str):
     if not google_auth.verify_state(state):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid state")
 
@@ -118,17 +112,19 @@ async def google_callback(
         )
 
     email = claims["email"]
-    user = await repository.get_by_email(session, email)
+    user = await database_client.get_or_none(f"/users/by-email/{email}")
     if user is None:
-        user = await repository.create_user(
-            session,
-            full_name=claims.get("name", email),
-            phone=None,
-            email=email,
-            password_hash=None,
+        user = await database_client.post(
+            "/users",
+            json={
+                "full_name": claims.get("name", email),
+                "phone": None,
+                "email": email,
+                "password_hash": None,
+            },
         )
 
-    token = security.create_access_token(user.id)
+    token = security.create_access_token(user["id"])
     return schemas.TokenResponse(
         access_token=token, user=schemas.UserResponse.model_validate(user)
     )

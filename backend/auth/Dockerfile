@@ -3,7 +3,6 @@ FROM python:3.13-slim AS builder
 RUN pip install --no-cache-dir uv
 
 WORKDIR /app
-COPY backend/database ./backend/database
 COPY backend/auth ./backend/auth
 
 WORKDIR /app/backend/auth
