@@ -1,0 +1,23 @@
+[project]
+name = "hospitals"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "soxibjonovich", email = "makhmud.dev09@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "pyjwt>=2.13.0",
+    "pydantic>=2.13.4",
+    "uvicorn[standard]>=0.34.0",
+]
+
+[project.scripts]
+hospitals = "hospitals:main"
+
+[build-system]
+requires = ["uv_build>=0.12.2,<0.13.0"]
+build-backend = "uv_build"
