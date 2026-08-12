@@ -292,11 +292,16 @@ function FeedbackPage() {
         <Button
           size="lg"
           className="w-full"
-          disabled={rating === 0 || submit.isPending || (audio != null && !consent)}
+          disabled={!allRated || submit.isPending || (audio != null && !consent)}
           onClick={() => submit.mutate()}
         >
           {submit.isPending ? 'Submitting…' : 'Submit feedback'}
         </Button>
+        {!allRated && (
+          <p className="text-center text-xs text-muted-foreground">
+            Please rate all five characteristics before submitting.
+          </p>
+        )}
         {audio != null && !consent && (
           <p className="text-center text-xs text-destructive">
             Please consent to voice recording before submitting.

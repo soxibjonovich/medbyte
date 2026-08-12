@@ -19,8 +19,12 @@ restart:
 	docker compose restart
 
 test:
-	cd backend/api && uv run pytest
+	cd backend/auth && uv run pytest
 	cd backend/database && uv run pytest
+	cd backend/feedback && uv run pytest
+	cd backend/notifications && uv run pytest
+	cd backend/admin && uv run pytest
+	cd backend/user && uv run pytest
 
 health:
 	curl -sf http://127.0.0.1:8004/health
@@ -37,7 +41,7 @@ help:
 	@echo "  logs      Follow logs: docker compose logs -f"
 	@echo "  ps        Show stack status: docker compose ps"
 	@echo "  restart   Restart services: docker compose restart"
-	@echo "  test      Run pytest in backend/api and backend/database (requires uv)"
+	@echo "  test      Run pytest across backend services (requires uv)"
 	@echo "  health    Curl the /health endpoints of api and database"
 	@echo "  help      Show this help"
 	@echo ""

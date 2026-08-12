@@ -123,7 +123,7 @@ function AdminStatisticsPage() {
           ) : data.length === 0 ? (
             <EmptyState title="No visit data in this range" />
           ) : (
-            <ChartContainer config={config} className="h-72">
+            <ChartContainer config={config} className="h-72 w-full aspect-[5/2]">
               <BarChart data={data} margin={{ left: 0, right: 0 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="name" tickLine={false} axisLine={false} interval={0} />

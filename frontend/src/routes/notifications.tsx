@@ -1,16 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
 import { toast } from 'sonner'
-import { Bell, CheckCheck, Send, Loader2 } from 'lucide-react'
+import { Bell, CheckCheck } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PageLoader } from '@/components/shared/loader'
 import { EmptyState } from '@/components/shared/empty-state'
 import { requireAuth } from '@/lib/guards'
-import { databaseApi, notificationsApi } from '@/lib/api'
-import { preflightPushSubscription, sendSubscriptionToBackend } from '@/lib/push'
+import { databaseApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { formatRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -23,29 +21,6 @@ export const Route = createFileRoute('/notifications')({
 function NotificationsPage() {
   const user = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
-  const [sendingTest, setSendingTest] = useState(false)
-
-  const sendTestPush = async () => {
-    setSendingTest(true)
-    try {
-      const subscription = await preflightPushSubscription()
-      if (!subscription) {
-        toast.error('Push not supported or permission denied — use HTTPS/localhost')
-        return
-      }
-      await sendSubscriptionToBackend(subscription)
-      const result = await notificationsApi.testSend()
-      if (result.sent === 0) {
-        toast.info('No push subscriptions registered for your account')
-      } else {
-        toast.success(`Test push sent to ${result.sent} device${result.sent === 1 ? '' : 's'}`)
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Test push failed')
-    } finally {
-      setSendingTest(false)
-    }
-  }
 
   const { data, isPending, isError } = useQuery({
     queryKey: ['notifications', user?.id],
@@ -79,10 +54,6 @@ function NotificationsPage() {
             </p>
           </div>
           <div className="flex shrink-0 gap-2">
-            <Button variant="outline" size="sm" onClick={sendTestPush} disabled={sendingTest}>
-              {sendingTest ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-              Test push
-            </Button>
             {unreadCount > 0 && (
               <Button variant="outline" size="sm" onClick={markAllRead}>
                 <CheckCheck className="size-4" /> Mark all read

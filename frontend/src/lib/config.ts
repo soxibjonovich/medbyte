@@ -29,10 +29,4 @@ export function apiWsUrl(base: string, path: string): string {
   return url.toString()
 }
 
-/**
- * VAPID public key used by the browser to subscribe to Web Push.
- * Override with VITE_VAPID_PUBLIC_KEY if the backend uses a different key pair.
- */
-export const VAPID_PUBLIC_KEY =
-  (env.VITE_VAPID_PUBLIC_KEY as string) ??
-  'BPyC2gDrzrpvZPFSiXI_BAi6cGCZ8Sy2mn1OTi0E5vefB-xecuwnkvax0D3sW_nCc1r6_RdugzjJ41yPurqzU5c'
+// Push notifications are removed from the frontend. Email/in-app notification delivery is still available via the backend notifications service.

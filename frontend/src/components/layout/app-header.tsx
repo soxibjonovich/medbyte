@@ -20,6 +20,11 @@ const NAV = [
   { label: 'AI Assistant', to: '/ai-chat' },
 ]
 
+const USER_NAV = [
+  { label: 'Discounts', to: '/discounts' },
+  { label: 'Appointments', to: '/profile/appointments' },
+]
+
 export function AppHeader() {
   const { token, user, clearSession } = useAuthStore()
   const navigate = useNavigate()
@@ -45,6 +50,12 @@ export function AppHeader() {
               {item.label}
             </Button>
           ))}
+          {token &&
+            USER_NAV.map((item) => (
+              <Button key={item.to} variant="ghost" size="sm" render={<Link to={item.to} />}>
+                {item.label}
+              </Button>
+            ))}
         </nav>
 
         <div className="ml-auto flex items-center gap-2">

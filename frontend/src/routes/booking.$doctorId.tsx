@@ -72,7 +72,7 @@ function BookingPage() {
     enabled: doctor.data != null,
   })
 
-  const days = useMemo(generateSlots, [])
+  const days = useMemo(() => generateSlots(), [])
   const [selected, setSelected] = useState<Slot | null>(null)
 
   const book = useMutation({

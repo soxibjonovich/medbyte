@@ -343,7 +343,10 @@ function CategoryCombobox({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<Button type="button" variant="outline" className="h-9 w-full justify-between font-normal" />}>
+      <PopoverTrigger
+        className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm font-normal text-left text-foreground outline-none transition hover:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+        type="button"
+      >
         <span className={cn(!selected && 'text-muted-foreground')}>
           {selected ? selected.name : 'Select category…'}
         </span>

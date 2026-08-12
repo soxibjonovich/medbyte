@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { AuthShell } from '@/components/auth/auth-shell'
 import { authApi } from '@/lib/api'
 import { notifyLogin } from '@/lib/notifications'
-import { preflightPushSubscription } from '@/lib/push'
 import { useAuthStore } from '@/stores/auth'
 import { toast } from 'sonner'
 
@@ -43,13 +42,11 @@ function LoginPage() {
   } = useForm<FormValues>({ resolver: zodResolver(schema) })
 
   const onSubmit = async (values: FormValues) => {
-    // Start the push subscription inside the click gesture so mobile browsers accept it.
-    const subscriptionPromise = preflightPushSubscription()
     try {
       const res = await authApi.login({ username: values.username, password: values.password })
       setSession(res.access_token, res.user)
       toast.success(`Welcome back, ${res.user.full_name}!`)
-      void notifyLogin(res.user, subscriptionPromise)
+      void notifyLogin(res.user)
       navigate({ to: redirect ?? '/profile' } as never)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Login failed')

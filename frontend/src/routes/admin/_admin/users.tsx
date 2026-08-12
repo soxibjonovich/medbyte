@@ -6,13 +6,6 @@ import { UserRound, Phone, Mail, ShieldCheck } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
   Table,
   TableBody,
   TableCell,
@@ -104,26 +97,19 @@ function AdminUsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Select
+                    <select
                       value={user.role}
                       disabled={roleMutation.isPending}
-                      onValueChange={(role) =>
-                        roleMutation.mutate({ id: user.id, role: role as User['role'] })
+                      onChange={(event) =>
+                        roleMutation.mutate({ id: user.id, role: event.target.value as User['role'] })
                       }
+                      className="ml-auto w-full max-w-[12rem] rounded-md border border-input bg-background px-3 py-2 text-sm capitalize text-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60"
+                      aria-label={`Change role for ${user.full_name}`}
                     >
-                      <SelectTrigger
-                        size="sm"
-                        className="ml-auto capitalize"
-                        aria-label={`Change role for ${user.full_name}`}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="patient">Patient</SelectItem>
-                        <SelectItem value="staff">Staff</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <option value="patient">Patient</option>
+                      <option value="staff">Staff</option>
+                      <option value="admin">Admin</option>
+                    </select>
                   </TableCell>
                 </TableRow>
               ))}
