@@ -104,11 +104,17 @@ async def delete_user(session: AsyncSession, user: User) -> None:
 
 
 async def list_appointments(
-    session: AsyncSession, user_id: int | None = None, limit: int = 50, offset: int = 0
+    session: AsyncSession,
+    user_id: int | None = None,
+    hospital_id: int | None = None,
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[Appointment]:
     stmt = select(Appointment).order_by(Appointment.scheduled_at.desc())
     if user_id is not None:
         stmt = stmt.where(Appointment.user_id == user_id)
+    if hospital_id is not None:
+        stmt = stmt.where(Appointment.hospital_id == hospital_id)
     result = await session.execute(stmt.limit(limit).offset(offset))
     return list(result.scalars().all())
 

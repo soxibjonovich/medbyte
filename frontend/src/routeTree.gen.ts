@@ -15,7 +15,6 @@ import { Route as DiscountsRouteImport } from './routes/discounts'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as NotificationsRouteImport } from './routes/notifications'
-import { Route as OtpVerifyRouteImport } from './routes/otp-verify'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as AdminAdminRouteImport } from './routes/admin/_admin'
 import { Route as BookingDoctorIdRouteImport } from './routes/booking.$doctorId'
@@ -31,6 +30,7 @@ import { Route as AdminAdminDiscountsRouteImport } from './routes/admin/_admin/d
 import { Route as AdminAdminDoctorsRouteImport } from './routes/admin/_admin/doctors'
 import { Route as AdminAdminFeedbackRouteImport } from './routes/admin/_admin/feedback'
 import { Route as AdminAdminHospitalsRouteImport } from './routes/admin/_admin/hospitals'
+import { Route as AdminAdminQueueRouteImport } from './routes/admin/_admin/queue'
 import { Route as AdminAdminStatisticsRouteImport } from './routes/admin/_admin/statistics'
 import { Route as AdminAdminUsersRouteImport } from './routes/admin/_admin/users'
 
@@ -62,11 +62,6 @@ const LoginRoute = LoginRouteImport.update({
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OtpVerifyRoute = OtpVerifyRouteImport.update({
-  id: '/otp-verify',
-  path: '/otp-verify',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterRoute = RegisterRouteImport.update({
@@ -144,6 +139,11 @@ const AdminAdminHospitalsRoute = AdminAdminHospitalsRouteImport.update({
   path: '/hospitals',
   getParentRoute: () => AdminAdminRoute,
 } as any)
+const AdminAdminQueueRoute = AdminAdminQueueRouteImport.update({
+  id: '/queue',
+  path: '/queue',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
 const AdminAdminStatisticsRoute = AdminAdminStatisticsRouteImport.update({
   id: '/statistics',
   path: '/statistics',
@@ -162,7 +162,6 @@ export interface FileRoutesByFullPath {
   '/leaderboard': typeof LeaderboardRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
-  '/otp-verify': typeof OtpVerifyRoute
   '/register': typeof RegisterRoute
   '/admin': typeof AdminAdminRouteWithChildren
   '/booking/$doctorId': typeof BookingDoctorIdRoute
@@ -177,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/admin/doctors': typeof AdminAdminDoctorsRoute
   '/admin/feedback': typeof AdminAdminFeedbackRoute
   '/admin/hospitals': typeof AdminAdminHospitalsRoute
+  '/admin/queue': typeof AdminAdminQueueRoute
   '/admin/statistics': typeof AdminAdminStatisticsRoute
   '/admin/users': typeof AdminAdminUsersRoute
   '/admin/': typeof AdminAdminIndexRoute
@@ -188,7 +188,6 @@ export interface FileRoutesByTo {
   '/leaderboard': typeof LeaderboardRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
-  '/otp-verify': typeof OtpVerifyRoute
   '/register': typeof RegisterRoute
   '/booking/$doctorId': typeof BookingDoctorIdRoute
   '/feedback/$appointmentId': typeof FeedbackAppointmentIdRoute
@@ -202,6 +201,7 @@ export interface FileRoutesByTo {
   '/admin/doctors': typeof AdminAdminDoctorsRoute
   '/admin/feedback': typeof AdminAdminFeedbackRoute
   '/admin/hospitals': typeof AdminAdminHospitalsRoute
+  '/admin/queue': typeof AdminAdminQueueRoute
   '/admin/statistics': typeof AdminAdminStatisticsRoute
   '/admin/users': typeof AdminAdminUsersRoute
   '/admin': typeof AdminAdminIndexRoute
@@ -214,7 +214,6 @@ export interface FileRoutesById {
   '/leaderboard': typeof LeaderboardRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
-  '/otp-verify': typeof OtpVerifyRoute
   '/register': typeof RegisterRoute
   '/admin/_admin': typeof AdminAdminRouteWithChildren
   '/booking/$doctorId': typeof BookingDoctorIdRoute
@@ -229,6 +228,7 @@ export interface FileRoutesById {
   '/admin/_admin/doctors': typeof AdminAdminDoctorsRoute
   '/admin/_admin/feedback': typeof AdminAdminFeedbackRoute
   '/admin/_admin/hospitals': typeof AdminAdminHospitalsRoute
+  '/admin/_admin/queue': typeof AdminAdminQueueRoute
   '/admin/_admin/statistics': typeof AdminAdminStatisticsRoute
   '/admin/_admin/users': typeof AdminAdminUsersRoute
   '/admin/_admin/': typeof AdminAdminIndexRoute
@@ -242,7 +242,6 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/login'
     | '/notifications'
-    | '/otp-verify'
     | '/register'
     | '/admin'
     | '/booking/$doctorId'
@@ -257,6 +256,7 @@ export interface FileRouteTypes {
     | '/admin/doctors'
     | '/admin/feedback'
     | '/admin/hospitals'
+    | '/admin/queue'
     | '/admin/statistics'
     | '/admin/users'
     | '/admin/'
@@ -268,7 +268,6 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/login'
     | '/notifications'
-    | '/otp-verify'
     | '/register'
     | '/booking/$doctorId'
     | '/feedback/$appointmentId'
@@ -282,6 +281,7 @@ export interface FileRouteTypes {
     | '/admin/doctors'
     | '/admin/feedback'
     | '/admin/hospitals'
+    | '/admin/queue'
     | '/admin/statistics'
     | '/admin/users'
     | '/admin'
@@ -293,7 +293,6 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/login'
     | '/notifications'
-    | '/otp-verify'
     | '/register'
     | '/admin/_admin'
     | '/booking/$doctorId'
@@ -308,6 +307,7 @@ export interface FileRouteTypes {
     | '/admin/_admin/doctors'
     | '/admin/_admin/feedback'
     | '/admin/_admin/hospitals'
+    | '/admin/_admin/queue'
     | '/admin/_admin/statistics'
     | '/admin/_admin/users'
     | '/admin/_admin/'
@@ -320,7 +320,6 @@ export interface RootRouteChildren {
   LeaderboardRoute: typeof LeaderboardRoute
   LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
-  OtpVerifyRoute: typeof OtpVerifyRoute
   RegisterRoute: typeof RegisterRoute
   AdminAdminRoute: typeof AdminAdminRouteWithChildren
   BookingDoctorIdRoute: typeof BookingDoctorIdRoute
@@ -373,13 +372,6 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/otp-verify': {
-      id: '/otp-verify'
-      path: '/otp-verify'
-      fullPath: '/otp-verify'
-      preLoaderRoute: typeof OtpVerifyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register': {
@@ -487,6 +479,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAdminHospitalsRouteImport
       parentRoute: typeof AdminAdminRoute
     }
+    '/admin/_admin/queue': {
+      id: '/admin/_admin/queue'
+      path: '/queue'
+      fullPath: '/admin/queue'
+      preLoaderRoute: typeof AdminAdminQueueRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
     '/admin/_admin/statistics': {
       id: '/admin/_admin/statistics'
       path: '/statistics'
@@ -511,6 +510,7 @@ interface AdminAdminRouteChildren {
   AdminAdminDoctorsRoute: typeof AdminAdminDoctorsRoute
   AdminAdminFeedbackRoute: typeof AdminAdminFeedbackRoute
   AdminAdminHospitalsRoute: typeof AdminAdminHospitalsRoute
+  AdminAdminQueueRoute: typeof AdminAdminQueueRoute
   AdminAdminStatisticsRoute: typeof AdminAdminStatisticsRoute
   AdminAdminUsersRoute: typeof AdminAdminUsersRoute
   AdminAdminIndexRoute: typeof AdminAdminIndexRoute
@@ -523,6 +523,7 @@ const AdminAdminRouteChildren: AdminAdminRouteChildren = {
   AdminAdminDoctorsRoute: AdminAdminDoctorsRoute,
   AdminAdminFeedbackRoute: AdminAdminFeedbackRoute,
   AdminAdminHospitalsRoute: AdminAdminHospitalsRoute,
+  AdminAdminQueueRoute: AdminAdminQueueRoute,
   AdminAdminStatisticsRoute: AdminAdminStatisticsRoute,
   AdminAdminUsersRoute: AdminAdminUsersRoute,
   AdminAdminIndexRoute: AdminAdminIndexRoute,
@@ -539,7 +540,6 @@ const rootRouteChildren: RootRouteChildren = {
   LeaderboardRoute: LeaderboardRoute,
   LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
-  OtpVerifyRoute: OtpVerifyRoute,
   RegisterRoute: RegisterRoute,
   AdminAdminRoute: AdminAdminRouteWithChildren,
   BookingDoctorIdRoute: BookingDoctorIdRoute,

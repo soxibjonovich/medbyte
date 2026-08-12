@@ -3,7 +3,7 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
 
-from . import consumer, database_client
+from . import consumer, database_client, push
 from .deps import get_current_user
 from .schemas import Notification, PushSubscribeRequest, PushSubscription
 
@@ -61,6 +61,28 @@ async def push_subscribe(
             "auth_key": payload.keys.auth,
         },
     )
+
+
+@router.post("/test-send")
+async def test_send_notification(current_user: dict = Depends(get_current_user)):
+    subs = await database_client.get(f"/push-subscriptions?user_id={current_user['id']}")
+    payload = {
+        "title": "Test notification",
+        "message": "This is a test push from MedByte notifications service.",
+        "url": "/notifications",
+        "tag": "test",
+    }
+    sent = 0
+    failed = 0
+    for sub in subs:
+        try:
+            if await push.send_push(sub, payload):
+                sent += 1
+            else:
+                failed += 1
+        except push.StaleSubscription as exc:
+            await database_client.delete(f"/push-subscriptions/{exc.subscription_id}")
+    return {"sent": sent, "failed": failed}
 
 
 app.include_router(router)

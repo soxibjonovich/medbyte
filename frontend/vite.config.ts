@@ -72,6 +72,8 @@ export default defineConfig({
       },
       // admin service (port 8007) - stats + audit log
       '/api/admin': { target: SERVICES.admin, changeOrigin: true },
+      // admin service (port 8007) - live queue REST + websocket (ws:true upgrades /api/queue/ws)
+      '/api/queue': { target: SERVICES.admin, changeOrigin: true, ws: true },
       // database service (port 8005) - appointments, notifications, discounts, users, categories
       '/api/v1/database': { target: SERVICES.database, changeOrigin: true },
       // ai service (port 8011) - chat + audio chat
