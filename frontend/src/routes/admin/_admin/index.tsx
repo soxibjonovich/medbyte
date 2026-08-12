@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Users, CalendarDays, MessageSquare, Banknote, TrendingUp } from 'lucide-react'
+import { requireAdmin } from '@/lib/guards'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -10,6 +11,7 @@ import { adminApi } from '@/lib/api'
 import { formatMoney } from '@/lib/format'
 
 export const Route = createFileRoute('/admin/_admin/')({
+  beforeLoad: () => requireAdmin(),
   component: AdminOverviewPage,
 })
 

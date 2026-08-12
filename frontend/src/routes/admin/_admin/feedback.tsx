@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import { requireAdmin } from '@/lib/guards'
 import { Star, Mic, AudioLines } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -27,6 +28,7 @@ import { formatDateTime } from '@/lib/format'
 import type { Feedback, FeedbackProcessingStatus } from '@/lib/types'
 
 export const Route = createFileRoute('/admin/_admin/feedback')({
+  beforeLoad: () => requireAdmin(),
   component: AdminFeedbackPage,
 })
 

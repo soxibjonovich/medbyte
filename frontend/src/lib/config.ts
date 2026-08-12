@@ -13,6 +13,19 @@ export const API = {
   database: (env.VITE_DATABASE_API_URL as string) ?? '/api/v1/database',
   ai: (env.VITE_AI_API_URL as string) ?? '/api/ai',
   notifications: (env.VITE_NOTIFICATIONS_API_URL as string) ?? '/api/notifications',
+  queue: (env.VITE_QUEUE_API_URL as string) ?? '/api/queue',
+}
+
+/**
+ * Resolves an API base + path to a ws:// or wss:// URL, mirroring the current
+ * page's protocol (http -> ws, https -> wss). Works for both relative bases
+ * (proxied by Vite/Nginx, resolved against the current origin) and absolute
+ * http(s) bases (e.g. VITE_QUEUE_API_URL pointing at a standalone service).
+ */
+export function apiWsUrl(base: string, path: string): string {
+  const url = new URL(`${base}${path}`, window.location.origin)
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  return url.toString()
 }
 
 /**

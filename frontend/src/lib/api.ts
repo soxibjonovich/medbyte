@@ -1,4 +1,4 @@
-import { API } from './config'
+import { API, apiWsUrl } from './config'
 import { useAuthStore } from '@/stores/auth'
 import type {
   Appointment,
@@ -15,6 +15,7 @@ import type {
   HospitalLeaderboardEntry,
   MedicalCategory,
   Notification,
+  QueueEntry,
   SortOption,
   StatsOverview,
   TokenResponse,
@@ -250,6 +251,30 @@ export const adminApi = {
   updateDiscount: (id: number, body: { is_used: boolean }) =>
     apiFetch<Discount>(API.admin, `/discounts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteDiscount: (id: number) => apiFetch<void>(API.admin, `/discounts/${id}`, { method: 'DELETE' }),
+}
+
+/* ------------------------------------------------------------------ */
+/* Live queue (admin service, staff or admin)                          */
+/* ------------------------------------------------------------------ */
+
+export interface QueueCreateInput {
+  user_id: number
+  hospital_id?: number | null
+  doctor_id?: number | null
+  queue_number?: number | null
+  scheduled_at: string
+}
+
+export const queueApi = {
+  list: (params: { hospital_id?: number; limit?: number; offset?: number } = {}) =>
+    apiFetch<QueueEntry[]>(API.queue, `${buildQuery(params)}`),
+  create: (body: QueueCreateInput) =>
+    apiFetch<QueueEntry>(API.queue, '', { method: 'POST', body: JSON.stringify(body) }),
+  /** Builds the `wss://…/api/queue/ws?token=…` URL for the live queue websocket. */
+  wsUrl: () => {
+    const token = useAuthStore.getState().token
+    return apiWsUrl(API.queue, `/ws${buildQuery({ token })}`)
+  },
 }
 
 /* ------------------------------------------------------------------ */

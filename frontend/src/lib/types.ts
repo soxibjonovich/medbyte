@@ -1,4 +1,4 @@
-export type UserRole = 'patient' | 'admin'
+export type UserRole = 'patient' | 'staff' | 'admin'
 
 export interface User {
   id: number
@@ -70,6 +70,9 @@ export interface Appointment {
   scheduled_at: string
   created_at: string
 }
+
+/** Same shape as Appointment — the queue service backs onto the appointments table. */
+export type QueueEntry = Appointment
 
 export interface Notification {
   id: number

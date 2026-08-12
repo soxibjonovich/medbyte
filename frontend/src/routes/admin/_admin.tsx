@@ -12,18 +12,21 @@ import {
   LogOut,
   ExternalLink,
   Menu,
+  Radio,
 } from 'lucide-react'
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { requireAdmin } from '@/lib/guards'
+import { requireStaff } from '@/lib/guards'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
 
+// Staff and admin can both reach the admin section layout; individual leaf
+// routes that are genuinely admin-only re-guard themselves with requireAdmin().
 export const Route = createFileRoute('/admin/_admin')({
-  beforeLoad: () => requireAdmin(),
+  beforeLoad: () => requireStaff(),
   component: AdminLayout,
 })
 
@@ -39,6 +42,7 @@ const NAV: NavItem[] = [
   { label: 'Doctors', to: '/admin/doctors', icon: Stethoscope },
   { label: 'Discounts', to: '/admin/discounts', icon: TicketPercent },
   { label: 'Appointments', to: '/admin/appointments', icon: CalendarDays },
+  { label: 'Live queue', to: '/admin/queue', icon: Radio },
   { label: 'Feedback', to: '/admin/feedback', icon: MessageSquare },
   { label: 'Statistics', to: '/admin/statistics', icon: BarChart3 },
   { label: 'Users', to: '/admin/users', icon: Users },
@@ -97,7 +101,7 @@ function AdminLayout() {
 
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{user?.full_name}</p>
-            <p className="text-xs text-muted-foreground">Administrator</p>
+            <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
           </div>
 
           <div className="ml-auto flex items-center gap-1">

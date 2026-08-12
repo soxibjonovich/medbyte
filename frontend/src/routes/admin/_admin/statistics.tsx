@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import { requireAdmin } from '@/lib/guards'
 import { toast } from 'sonner'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Cell } from 'recharts'
 import { Download, TrendingUp } from 'lucide-react'
@@ -20,6 +21,7 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { adminApi } from '@/lib/api'
 
 export const Route = createFileRoute('/admin/_admin/statistics')({
+  beforeLoad: () => requireAdmin(),
   component: AdminStatisticsPage,
 })
 

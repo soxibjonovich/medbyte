@@ -43,3 +43,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
 export const isAuthenticated = () => Boolean(useAuthStore.getState().token)
 export const isAdmin = () => useAuthStore.getState().user?.role === 'admin'
+export const isStaff = () => useAuthStore.getState().user?.role === 'staff'
+export const isStaffOrAdmin = () => {
+  const role = useAuthStore.getState().user?.role
+  return role === 'staff' || role === 'admin'
+}

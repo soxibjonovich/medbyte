@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { requireAdmin } from '@/lib/guards'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, Copy } from 'lucide-react'
 
@@ -41,6 +42,7 @@ import { copyToClipboard, formatDate } from '@/lib/format'
 import type { Discount } from '@/lib/types'
 
 export const Route = createFileRoute('/admin/_admin/discounts')({
+  beforeLoad: () => requireAdmin(),
   component: AdminDiscountsPage,
 })
 

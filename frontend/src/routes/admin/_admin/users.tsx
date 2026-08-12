@@ -1,10 +1,17 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { requireAdmin } from '@/lib/guards'
 import { UserRound, Phone, Mail, ShieldCheck } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -20,6 +27,7 @@ import { formatDate } from '@/lib/format'
 import type { User } from '@/lib/types'
 
 export const Route = createFileRoute('/admin/_admin/users')({
+  beforeLoad: () => requireAdmin(),
   component: AdminUsersPage,
 })
 
@@ -67,7 +75,7 @@ function AdminUsersPage() {
                 <TableHead>Contact</TableHead>
                 <TableHead>Joined</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead className="text-right">Admin</TableHead>
+                <TableHead className="text-right">Change role</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -96,14 +104,26 @@ function AdminUsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Switch
-                      checked={user.role === 'admin'}
+                    <Select
+                      value={user.role}
                       disabled={roleMutation.isPending}
-                      onCheckedChange={(checked) =>
-                        roleMutation.mutate({ id: user.id, role: checked ? 'admin' : 'patient' })
+                      onValueChange={(role) =>
+                        roleMutation.mutate({ id: user.id, role: role as User['role'] })
                       }
-                      aria-label={`Toggle admin for ${user.full_name}`}
-                    />
+                    >
+                      <SelectTrigger
+                        size="sm"
+                        className="ml-auto capitalize"
+                        aria-label={`Change role for ${user.full_name}`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="patient">Patient</SelectItem>
+                        <SelectItem value="staff">Staff</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                 </TableRow>
               ))}

@@ -84,10 +84,14 @@ export function AppHeader() {
                     <HeartPulse className="size-4" />
                     My discounts
                   </DropdownMenuItem>
-                  {user?.role === 'admin' && (
+                  {(user?.role === 'admin' || user?.role === 'staff') && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem render={<Link to="/admin" />}>
+                      {/* Staff land on the overview (index.tsx) is admin-only, so send them
+                          straight to the one page they can actually use. */}
+                      <DropdownMenuItem
+                        render={<Link to={user?.role === 'admin' ? '/admin' : '/admin/queue'} />}
+                      >
                         <LayoutDashboard className="size-4" />
                         Admin dashboard
                       </DropdownMenuItem>

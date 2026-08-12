@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { requireAdmin } from '@/lib/guards'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, Star, MapPin } from 'lucide-react'
 
@@ -40,6 +41,7 @@ import type { Hospital } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/admin/_admin/hospitals')({
+  beforeLoad: () => requireAdmin(),
   component: AdminHospitalsPage,
 })
 
