@@ -38,7 +38,7 @@ import {
 import { PageLoader } from '@/components/shared/loader'
 import { EmptyState } from '@/components/shared/empty-state'
 import { adminApi, databaseApi } from '@/lib/api'
-import { copyToClipboard, formatDate } from '@/lib/format'
+import { copyToClipboard, formatDate, formatDateTime } from '@/lib/format'
 import type { Discount } from '@/lib/types'
 
 export const Route = createFileRoute('/admin/_admin/discounts')({
@@ -169,18 +169,21 @@ function AdminDiscountsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>ID</TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>User</TableHead>
                 <TableHead>% off</TableHead>
                 <TableHead>Expires</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(data ?? []).map((discount) => (
                 <TableRow key={discount.id}>
+                  <TableCell className="font-mono text-muted-foreground">{discount.id}</TableCell>
                   <TableCell className="font-mono font-semibold">{discount.code}</TableCell>
                   <TableCell>{discount.title}</TableCell>
                   <TableCell className="text-muted-foreground">{userName(discount.user_id)}</TableCell>
@@ -196,6 +199,9 @@ function AdminDiscountsPage() {
                       }
                       aria-label="Active"
                     />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDateTime(discount.created_at)}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">

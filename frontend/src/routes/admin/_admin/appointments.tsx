@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table'
 import { PageLoader } from '@/components/shared/loader'
 import { EmptyState } from '@/components/shared/empty-state'
-import { databaseApi } from '@/lib/api'
+import { adminApi, databaseApi, hospitalsApi } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { AppointmentStatus } from '@/lib/types'
 
@@ -43,6 +43,17 @@ function AdminAppointmentsPage() {
     queryKey: ['admin', 'users'],
     queryFn: () => databaseApi.listUsers({ limit: 200 }),
   })
+  // Best-effort lookups — fall back to the raw id if these fail.
+  const hospitals = useQuery({
+    queryKey: ['hospitals', 'all'],
+    queryFn: () => hospitalsApi.list({ limit: 200 }),
+    retry: false,
+  })
+  const doctors = useQuery({
+    queryKey: ['admin', 'doctors'],
+    queryFn: () => adminApi.listDoctors({ limit: 200 }),
+    retry: false,
+  })
 
   const cancelMutation = useMutation({
     mutationFn: (id: number) => databaseApi.updateAppointment(id, { status: 'cancelled' }),
@@ -59,6 +70,10 @@ function AdminAppointmentsPage() {
   }, [data, filter])
 
   const userName = (id: number) => users.data?.find((u) => u.id === id)?.full_name ?? `User #${id}`
+  const hospitalName = (id: number | null) =>
+    id == null ? '—' : hospitals.data?.find((h) => h.id === id)?.name ?? `Hospital #${id}`
+  const doctorName = (id: number | null) =>
+    id == null ? '—' : doctors.data?.find((d) => d.id === id)?.full_name ?? `Doctor #${id}`
 
   return (
     <div>
@@ -93,8 +108,11 @@ function AdminAppointmentsPage() {
               <TableRow>
                 <TableHead>#</TableHead>
                 <TableHead>Patient</TableHead>
+                <TableHead>Hospital</TableHead>
+                <TableHead>Doctor</TableHead>
                 <TableHead>Scheduled</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -111,6 +129,12 @@ function AdminAppointmentsPage() {
                     </span>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
+                    {hospitalName(appointment.hospital_id)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {doctorName(appointment.doctor_id)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
                     <span className="flex items-center gap-1.5">
                       <CalendarDays className="size-3.5" />
                       {formatDateTime(appointment.scheduled_at)}
@@ -120,6 +144,9 @@ function AdminAppointmentsPage() {
                     <Badge className={STATUS_STYLES[appointment.status]}>
                       {appointment.status}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDateTime(appointment.created_at)}
                   </TableCell>
                   <TableCell className="text-right">
                     {appointment.status === 'scheduled' && (

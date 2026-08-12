@@ -216,6 +216,9 @@ function AdminQueuePage() {
                   <TableCell>
                     <Badge className={STATUS_STYLES[entry.status]}>{entry.status}</Badge>
                   </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDateTime(entry.created_at)}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="ghost"
@@ -247,14 +250,19 @@ function AdminQueuePage() {
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="space-y-1.5">
-              <Label>Patient id</Label>
-              <Input
-                type="number"
-                min={1}
+              <Label>Patient</Label>
+              <select
                 value={form.user_id}
                 onChange={(e) => setForm({ ...form, user_id: e.target.value })}
-                placeholder="e.g. 42"
-              />
+                className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Select patient…</option>
+                {(users.data ?? []).map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.full_name} (#{u.id})
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">

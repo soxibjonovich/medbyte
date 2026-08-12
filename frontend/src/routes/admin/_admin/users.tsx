@@ -64,7 +64,9 @@ function AdminUsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>ID</TableHead>
                 <TableHead>User</TableHead>
+                <TableHead>Username</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Joined</TableHead>
                 <TableHead>Role</TableHead>
@@ -74,11 +76,15 @@ function AdminUsersPage() {
             <TableBody>
               {(data ?? []).map((user) => (
                 <TableRow key={user.id}>
+                  <TableCell className="font-mono text-muted-foreground">{user.id}</TableCell>
                   <TableCell>
                     <span className="flex items-center gap-2 font-medium">
                       <UserRound className="size-4 text-muted-foreground" />
                       {user.full_name}
                     </span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {user.username ?? '—'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     <div className="flex flex-col gap-0.5">

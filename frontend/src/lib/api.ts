@@ -301,9 +301,23 @@ export interface AIChatResponse {
   reply: string
 }
 
+export interface AudioTranscriptResponse {
+  conversation_id: string | null
+  transcript: string
+}
+
 export const aiApi = {
   chat: (body: AIChatRequest) =>
     apiFetch<AIChatResponse>(API.ai, '/chat', { method: 'POST', body: JSON.stringify(body) }),
+  transcribeAudio: (file: File, conversationId?: string | null) => {
+    const form = new FormData()
+    form.append('audio', file)
+    if (conversationId) form.append('conversation_id', conversationId)
+    return apiFetch<AudioTranscriptResponse>(API.ai, '/chat/audio', {
+      method: 'POST',
+      body: form,
+    })
+  },
 }
 
 /* ------------------------------------------------------------------ */

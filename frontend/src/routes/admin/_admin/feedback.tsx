@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dialog'
 import { PageLoader } from '@/components/shared/loader'
 import { EmptyState } from '@/components/shared/empty-state'
-import { feedbackApi } from '@/lib/api'
+import { databaseApi, feedbackApi, hospitalsApi } from '@/lib/api'
 import { useCategories } from '@/hooks/useCategories'
 import { formatDateTime } from '@/lib/format'
 import type { Feedback, FeedbackProcessingStatus } from '@/lib/types'
@@ -64,6 +64,21 @@ function AdminFeedbackPage() {
     enabled: selected != null,
   })
 
+  const users = useQuery({
+    queryKey: ['admin', 'users'],
+    queryFn: () => databaseApi.listUsers({ limit: 200 }),
+    retry: false,
+  })
+  const hospitals = useQuery({
+    queryKey: ['hospitals', 'all'],
+    queryFn: () => hospitalsApi.list({ limit: 200 }),
+    retry: false,
+  })
+
+  const userName = (id: number) => users.data?.find((u) => u.id === id)?.full_name ?? `User #${id}`
+  const hospitalName = (id: number) =>
+    hospitals.data?.find((h) => h.id === id)?.name ?? `Hospital #${id}`
+
   const rows = data ?? []
 
   return (
@@ -101,6 +116,11 @@ function AdminFeedbackPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>User</TableHead>
+                <TableHead>Appointment</TableHead>
+                <TableHead>Hospital</TableHead>
+                <TableHead>Doctor</TableHead>
                 <TableHead>Rating</TableHead>
                 <TableHead>Comment</TableHead>
                 <TableHead>Category</TableHead>
@@ -117,6 +137,17 @@ function AdminFeedbackPage() {
                   className="cursor-pointer"
                   onClick={() => setSelected(feedback)}
                 >
+                  <TableCell className="font-mono text-muted-foreground">{feedback.id}</TableCell>
+                  <TableCell className="text-muted-foreground">{userName(feedback.user_id)}</TableCell>
+                  <TableCell className="font-mono text-muted-foreground">
+                    {feedback.appointment_id}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {feedback.hospital_id != null ? hospitalName(feedback.hospital_id) : '—'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {feedback.doctor_id != null ? `Doctor #${feedback.doctor_id}` : '—'}
+                  </TableCell>
                   <TableCell>
                     <span className="flex items-center gap-1">
                       <Star className="size-3.5 fill-amber-400 text-amber-400" />

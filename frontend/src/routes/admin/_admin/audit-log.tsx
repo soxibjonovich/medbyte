@@ -92,6 +92,7 @@ function AdminAuditLogPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>ID</TableHead>
                 <TableHead>When</TableHead>
                 <TableHead>Actor</TableHead>
                 <TableHead>Action</TableHead>
@@ -102,6 +103,7 @@ function AdminAuditLogPage() {
             <TableBody>
               {rows.map((entry) => (
                 <TableRow key={entry.id}>
+                  <TableCell className="font-mono text-muted-foreground">{entry.id}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {formatDateTime(entry.created_at)}
                   </TableCell>

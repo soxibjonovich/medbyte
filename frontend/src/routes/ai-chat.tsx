@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
-import { Bot, User, Send, AlertTriangle, ShieldAlert, CalendarPlus } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Bot, User, Send, Mic, Square, AlertTriangle, ShieldAlert, CalendarPlus } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -76,6 +77,10 @@ function AIChatPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
+  const [recording, setRecording] = useState(false)
+  const [transcribing, setTranscribing] = useState(false)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
 
   const allHospitals = useQuery({
     queryKey: ['hospitals', 'all'],
@@ -120,6 +125,49 @@ function AIChatPage() {
     }
 
     return scoreDoctors(candidates).slice(0, 5)
+  }
+
+  const toggleRecording = async () => {
+    if (recording) {
+      recorderRef.current?.stop()
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(
+        stream,
+        MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? { mimeType: 'audio/webm;codecs=opus' }
+          : undefined,
+      )
+      chunksRef.current = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop())
+        setRecording(false)
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        if (blob.size === 0) return
+        setTranscribing(true)
+        try {
+          const file = new File([blob], `voice-${Date.now()}.webm`, { type: blob.type })
+          const { transcript } = await aiApi.transcribeAudio(file, conversationId)
+          const text = transcript?.trim()
+          if (text) setInput((prev) => (prev ? `${prev} ${text}` : text))
+          else toast.error('Could not understand the audio — please try again.')
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : 'Transcription failed')
+        } finally {
+          setTranscribing(false)
+        }
+      }
+      recorder.start()
+      recorderRef.current = recorder
+      setRecording(true)
+    } catch {
+      toast.error('Microphone access denied. Allow microphone access to use voice input.')
+    }
   }
 
   const send = async (text?: string) => {
@@ -220,6 +268,23 @@ function AIChatPage() {
               }
             }}
           />
+          <Button
+            type="button"
+            size="icon"
+            variant={recording ? 'destructive' : 'outline'}
+            className={`size-11 shrink-0 ${recording ? 'animate-pulse' : ''}`}
+            onClick={toggleRecording}
+            disabled={loading || transcribing}
+            title={recording ? 'Stop recording' : 'Record voice message'}
+          >
+            {transcribing ? (
+              <Spinner />
+            ) : recording ? (
+              <Square className="size-4" />
+            ) : (
+              <Mic className="size-4" />
+            )}
+          </Button>
           <Button type="submit" size="icon" className="size-11 shrink-0" disabled={loading}>
             <Send className="size-4" />
           </Button>
