@@ -19,6 +19,13 @@ export const Route = createFileRoute('/ai-chat')({
   component: AIChatPage,
 })
 
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
@@ -148,7 +155,10 @@ function AIChatPage() {
         stream.getTracks().forEach((t) => t.stop())
         setRecording(false)
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
-        if (blob.size === 0) return
+        if (blob.size === 0) {
+          toast.error('No audio captured — try recording again.')
+          return
+        }
         setTranscribing(true)
         try {
           const file = new File([blob], `voice-${Date.now()}.webm`, { type: blob.type })
@@ -177,7 +187,7 @@ function AIChatPage() {
 
     setMessages((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), role: 'user', text: content },
+      { id: generateId(), role: 'user', text: content },
     ])
     setLoading(true)
 
@@ -195,7 +205,7 @@ function AIChatPage() {
       setMessages((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: generateId(),
           role: 'assistant',
           text: composeReply(reply, matched, doctors),
           doctors,
@@ -206,7 +216,7 @@ function AIChatPage() {
       setMessages((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: generateId(),
           role: 'assistant',
           text: "Sorry, I ran into a problem reaching the hospital data. Please try again in a moment.",
         },

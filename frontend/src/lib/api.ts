@@ -81,7 +81,7 @@ export const authApi = {
     full_name: string
     username: string
     phone?: string
-    email?: string
+    email: string
     password: string
   }) => apiFetch<TokenResponse>(API.auth, '/register', { method: 'POST', body: JSON.stringify(body) }),
   login: (body: { username: string; password: string }) =>
@@ -181,7 +181,6 @@ export const databaseApi = {
 /* ------------------------------------------------------------------ */
 
 export interface DiscountCreateInput {
-  user_id: number
   title: string
   code: string
   percent_off: number
@@ -321,18 +320,6 @@ export const aiApi = {
 }
 
 /* ------------------------------------------------------------------ */
-/* Notifications service (in-app + web push)                           */
-/* ------------------------------------------------------------------ */
-
-export const notificationsApi = {
-  send: (body: { title: string; message: string }) =>
-    apiFetch<Notification>(API.notifications, '/send', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-}
-
-/* ------------------------------------------------------------------ */
 /* Payment service (Stripe checkout)                                   */
 /* ------------------------------------------------------------------ */
 
@@ -351,8 +338,7 @@ export const paymentApi = {
 /* Feedback service                                                    */
 /* ------------------------------------------------------------------ */
 
-export interface FeedbackSubmitInput {
-  appointment_id: number
+export interface FeedbackRatingsInput {
   professionalism: number
   communication: number
   punctuality: number
@@ -363,20 +349,41 @@ export interface FeedbackSubmitInput {
   audio_file?: File | null
 }
 
+export interface FeedbackSubmitInput extends FeedbackRatingsInput {
+  appointment_id: number
+}
+
+export interface FeedbackClaimResponse {
+  feedback: Feedback
+  discount: Discount | null
+}
+
+function buildFeedbackForm(input: FeedbackRatingsInput, appointmentId?: number): FormData {
+  const form = new FormData()
+  if (appointmentId != null) form.append('appointment_id', String(appointmentId))
+  form.append('professionalism', String(input.professionalism))
+  form.append('communication', String(input.communication))
+  form.append('punctuality', String(input.punctuality))
+  form.append('attentiveness', String(input.attentiveness))
+  form.append('effectiveness', String(input.effectiveness))
+  for (const tag of input.tags ?? []) form.append('tags', tag)
+  if (input.text_comment) form.append('text_comment', input.text_comment)
+  if (input.audio_file) form.append('audio_file', input.audio_file)
+  return form
+}
+
 export const feedbackApi = {
-  submit: (input: FeedbackSubmitInput) => {
-    const form = new FormData()
-    form.append('appointment_id', String(input.appointment_id))
-    form.append('professionalism', String(input.professionalism))
-    form.append('communication', String(input.communication))
-    form.append('punctuality', String(input.punctuality))
-    form.append('attentiveness', String(input.attentiveness))
-    form.append('effectiveness', String(input.effectiveness))
-    for (const tag of input.tags ?? []) form.append('tags', tag)
-    if (input.text_comment) form.append('text_comment', input.text_comment)
-    if (input.audio_file) form.append('audio_file', input.audio_file)
-    return apiFetch<Feedback>(API.feedback, '', { method: 'POST', body: form })
-  },
+  submit: (input: FeedbackSubmitInput) =>
+    apiFetch<Feedback>(API.feedback, '', {
+      method: 'POST',
+      body: buildFeedbackForm(input, input.appointment_id),
+    }),
+  /** No auth required — redeems a single-use token from a payment-success email link. */
+  claimByToken: (token: string, input: FeedbackRatingsInput) =>
+    apiFetch<FeedbackClaimResponse>(API.feedback, `/claim/${token}`, {
+      method: 'POST',
+      body: buildFeedbackForm(input),
+    }),
   list: (params: {
     hospital_id?: number
     category_id?: number

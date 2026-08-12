@@ -1,17 +1,28 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 
-import stripe
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, status
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
 from fastapi.responses import RedirectResponse
 
-from . import database_client, stripe_client
+from . import database_client, rabbitmq_client
 from .deps import get_current_user
 from .schemas import CheckoutRequest, CheckoutResponse, PaymentDetail
 
 DEMO_AMOUNT = int(os.environ.get("PAYMENT_DEMO_AMOUNT", "2000"))
+
+
+class HealthLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "/health" not in record.getMessage()
+
+
+logging.getLogger("uvicorn.access").addFilter(HealthLogFilter())
 DEMO_CURRENCY = os.environ.get("PAYMENT_DEMO_CURRENCY", "usd")
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://192.168.0.101:5173")
+PAYMENT_SUCCESS_URL = "http://192.168.0.101:8010/api/payments/success"
+
+logger = logging.getLogger("payment.main")
 
 
 async def _finalize_paid_payment(payment_id: int) -> None:
@@ -20,11 +31,31 @@ async def _finalize_paid_payment(payment_id: int) -> None:
     if payment.get("status") == "paid":
         await database_client.post(f"/appointments/{payment['appointment_id']}/assign-queue")
 
+        # Best-effort: mint a one-time feedback link and email it instantly. Never
+        # fail the webhook over this — the payment itself already succeeded.
+        try:
+            token_record = await database_client.post(
+                "/feedback-tokens",
+                json={
+                    "appointment_id": payment["appointment_id"],
+                    "user_id": payment["user_id"],
+                },
+            )
+            await rabbitmq_client.publish_feedback_link_email(
+                payment["user_id"], payment["appointment_id"], token_record["token"]
+            )
+        except Exception:
+            logger.warning(
+                "failed to mint/publish feedback link for payment_id=%s", payment_id, exc_info=True
+            )
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     database_client.init_client()
+    await rabbitmq_client.init_client()
     yield
+    await rabbitmq_client.close_client()
     await database_client.close_client()
 
 
@@ -57,46 +88,22 @@ async def checkout(payload: CheckoutRequest, current_user: dict = Depends(get_cu
     )
 
     if payload.provider == "stripe":
-        try:
-            session = stripe_client.create_checkout_session(
-                payment["id"], DEMO_AMOUNT, DEMO_CURRENCY
-            )
-        except stripe.StripeError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY, detail=f"stripe error: {exc.user_message or str(exc)}"
-            )
-        await database_client.patch(f"/payments/{payment['id']}", json={"external_id": session.id})
-        return CheckoutResponse(payment_id=payment["id"], provider="stripe", checkout_url=session.url)
+        # Stripe gateway removed — always succeed instantly (demo mode).
+        external_id = f"demo-{payment['id']}"
+        await database_client.patch(
+            f"/payments/{payment['id']}", json={"external_id": external_id, "status": "paid"}
+        )
+        await _finalize_paid_payment(payment["id"])
+        return CheckoutResponse(
+            payment_id=payment["id"],
+            provider="stripe",
+            checkout_url=f"{PAYMENT_SUCCESS_URL}?session_id={external_id}",
+        )
 
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail=f"{payload.provider} checkout not implemented in this demo",
     )
-
-
-@router.post("/webhook/stripe", include_in_schema=False)
-async def stripe_webhook(request: Request):
-    raw_body = await request.body()
-    sig_header = request.headers.get("stripe-signature", "")
-    try:
-        event = stripe_client.construct_event(raw_body, sig_header)
-    except (ValueError, stripe.SignatureVerificationError):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid signature")
-
-    event_type = event["type"]
-    session = event["data"]["object"]
-    payment_id = session.get("metadata", {}).get("payment_id")
-
-    if payment_id is not None:
-        if event_type in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
-            await database_client.patch(
-                f"/payments/{payment_id}", json={"external_id": session["id"], "status": "paid"}
-            )
-            await _finalize_paid_payment(payment_id)
-        elif event_type in ("checkout.session.expired", "checkout.session.async_payment_failed"):
-            await database_client.patch(f"/payments/{payment_id}", json={"status": "failed"})
-
-    return {"received": True}
 
 
 @router.post("/webhook/payme", include_in_schema=False)

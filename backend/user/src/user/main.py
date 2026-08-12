@@ -1,9 +1,18 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, APIRouter, Depends
 
 from . import database_client, schemas
 from .deps import get_current_user
+
+
+class HealthLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "/health" not in record.getMessage()
+
+
+logging.getLogger("uvicorn.access").addFilter(HealthLogFilter())
 
 
 @asynccontextmanager

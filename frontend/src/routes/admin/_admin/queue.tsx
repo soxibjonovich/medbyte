@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/table'
 import { PageLoader } from '@/components/shared/loader'
 import { EmptyState } from '@/components/shared/empty-state'
-import { databaseApi, hospitalsApi, queueApi, type QueueCreateInput } from '@/lib/api'
+import { adminApi, databaseApi, hospitalsApi, queueApi, type QueueCreateInput } from '@/lib/api'
 import { useQueueSocket } from '@/hooks/useQueueSocket'
 import { formatDateTime } from '@/lib/format'
 import { requireStaff } from '@/lib/guards'
@@ -74,7 +74,7 @@ function mergeEntry(list: QueueEntry[] | undefined, entry: QueueEntry): QueueEnt
 
 function toPayload(form: QueueForm): QueueCreateInput | null {
   if (!form.user_id.trim()) {
-    toast.error('Patient id is required')
+    toast.error('Patient is required')
     return null
   }
   if (!form.scheduled_at) {
@@ -111,6 +111,12 @@ function AdminQueuePage() {
     queryFn: () => databaseApi.listUsers({ limit: 200 }),
     retry: false,
   })
+  // Same best-effort idea as above — fall back to the raw id if this fails.
+  const doctors = useQuery({
+    queryKey: ['admin', 'doctors'],
+    queryFn: () => adminApi.listDoctors({ limit: 200 }),
+    retry: false,
+  })
 
   const { connected } = useQueueSocket((entry) => {
     queryClient.setQueryData<QueueEntry[]>(QUEUE_QUERY_KEY, (old) => mergeEntry(old, entry))
@@ -129,8 +135,8 @@ function AdminQueuePage() {
 
   const testPushMutation = useMutation({
     mutationFn: (appointmentId: number) => queueApi.testFeedbackPush(appointmentId),
-    onSuccess: () => toast.success('Feedback reminder push scheduled (~1s)'),
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Push failed'),
+    onSuccess: () => toast.success('Feedback reminder email scheduled (~1s)'),
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Send failed'),
   })
 
   const openCreate = () => {
@@ -146,6 +152,8 @@ function AdminQueuePage() {
   const hospitalName = (id: number | null) =>
     id == null ? '—' : hospitals.data?.find((h) => h.id === id)?.name ?? `Hospital #${id}`
   const userName = (id: number) => users.data?.find((u) => u.id === id)?.full_name ?? `User #${id}`
+  const doctorName = (id: number | null) =>
+    id == null ? '—' : doctors.data?.find((d) => d.id === id)?.full_name ?? `Doctor #${id}`
 
   const rows = data ?? []
 
@@ -184,17 +192,21 @@ function AdminQueuePage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>ID</TableHead>
                 <TableHead>#</TableHead>
                 <TableHead>Patient</TableHead>
                 <TableHead>Hospital</TableHead>
+                <TableHead>Doctor</TableHead>
                 <TableHead>Scheduled</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead className="text-right">Test</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((entry) => (
                 <TableRow key={entry.id}>
+                  <TableCell className="font-mono text-muted-foreground">{entry.id}</TableCell>
                   <TableCell className="font-mono text-muted-foreground">
                     #{entry.queue_number ?? entry.id}
                   </TableCell>
@@ -206,6 +218,9 @@ function AdminQueuePage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {hospitalName(entry.hospital_id)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {doctorName(entry.doctor_id)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     <span className="flex items-center gap-1.5">
@@ -223,7 +238,7 @@ function AdminQueuePage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      title="Send feedback-reminder push now (test)"
+                      title="Send feedback-reminder email now (test)"
                       disabled={testPushMutation.isPending}
                       onClick={() => testPushMutation.mutate(entry.id)}
                     >
@@ -256,7 +271,7 @@ function AdminQueuePage() {
                 onChange={(e) => setForm({ ...form, user_id: e.target.value })}
                 className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <option value="">Select patient…</option>
+                <option value="">Select patient...</option>
                 {(users.data ?? []).map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.full_name} (#{u.id})

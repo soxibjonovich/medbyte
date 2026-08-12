@@ -18,8 +18,8 @@ class CreateUser(BaseModel):
     phone: str | None = Field(
         default=None, min_length=9, max_length=20, title="Phone", description="Contact phone number", examples=["+998901234567"]
     )
-    email: EmailStr | None = Field(
-        default=None, title="Email", description="Contact email address", examples=["aziz@example.com"]
+    email: EmailStr = Field(
+        title="Email", description="Contact email address", examples=["aziz@example.com"]
     )
     password: str = Field(
         min_length=8, title="Password", description="Plaintext password, hashed on the server before storage"

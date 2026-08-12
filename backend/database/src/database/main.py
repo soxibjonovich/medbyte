@@ -1,7 +1,9 @@
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import crud
@@ -15,6 +17,7 @@ from .schemas import (
     CreateDiscountRequest,
     CreateDoctorRequest,
     CreateFeedbackRequest,
+    CreateFeedbackTokenRequest,
     CreateHospitalRequest,
     CreateMedicalCategoryRequest,
     CreateNotificationRequest,
@@ -23,6 +26,7 @@ from .schemas import (
     DiscountResponse,
     DoctorResponse,
     FeedbackResponse,
+    FeedbackTokenResponse,
     FeedbackTranscriptResponse,
     HospitalDetailResponse,
     HospitalLeaderboardEntry,
@@ -47,6 +51,18 @@ from .schemas import (
     UserWithSecret,
 )
 from .session import get_session, init_models
+
+
+class HealthLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "/health" not in record.getMessage()
+
+
+logging.getLogger("uvicorn.access").addFilter(HealthLogFilter())
+
+
+class AwardRandomDiscountRequest(BaseModel):
+    user_id: int
 
 
 @asynccontextmanager
@@ -376,16 +392,26 @@ async def list_discounts_endpoint(
 async def create_discount_endpoint(
     payload: CreateDiscountRequest, session: AsyncSession = Depends(get_session)
 ):
-    if await crud.get_user(session, payload.user_id) is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
     return await crud.create_discount(
         session,
-        user_id=payload.user_id,
         title=payload.title,
         code=payload.code,
         percent_off=payload.percent_off,
         expires_at=payload.expires_at,
     )
+
+
+@app.post("/discounts/award-random", response_model=DiscountResponse)
+async def award_random_discount_endpoint(
+    payload: AwardRandomDiscountRequest, session: AsyncSession = Depends(get_session)
+):
+    """Pick one available (unclaimed) pool discount at random and award it to a user."""
+    discount = await crud.award_random_discount(session, user_id=payload.user_id)
+    if discount is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="no discounts available"
+        )
+    return discount
 
 
 @app.get("/discounts/{discount_id}", response_model=DiscountResponse)
@@ -813,3 +839,46 @@ async def stats_by_category_endpoint(
         CategoryVisitStat(category_id=cid, category_name=name, visit_count=count)
         for cid, name, count in rows
     ]
+
+
+@app.post(
+    "/feedback-tokens", response_model=FeedbackTokenResponse, status_code=status.HTTP_201_CREATED
+)
+async def create_feedback_token_endpoint(
+    payload: CreateFeedbackTokenRequest, session: AsyncSession = Depends(get_session)
+):
+    """Internal: called by the payment service once a payment succeeds, to mint a
+    one-time link for the patient to submit feedback without being logged in."""
+    return await crud.create_feedback_token(
+        session, appointment_id=payload.appointment_id, user_id=payload.user_id
+    )
+
+
+@app.get(
+    "/feedback-tokens/by-token/{token}",
+    response_model=FeedbackTokenResponse,
+    include_in_schema=False,
+)
+async def get_feedback_token_by_token_endpoint(
+    token: str, session: AsyncSession = Depends(get_session)
+):
+    token_obj = await crud.get_feedback_token_by_token(session, token)
+    if token_obj is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="token not found")
+    return token_obj
+
+
+@app.post(
+    "/feedback-tokens/{token}/redeem",
+    response_model=FeedbackTokenResponse,
+    include_in_schema=False,
+)
+async def redeem_feedback_token_endpoint(token: str, session: AsyncSession = Depends(get_session)):
+    token_obj = await crud.get_feedback_token_by_token(session, token)
+    if token_obj is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="token not found")
+    if token_obj.used:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="link already used"
+        )
+    return await crud.mark_feedback_token_used(session, token_obj)

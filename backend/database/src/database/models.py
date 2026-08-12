@@ -165,12 +165,29 @@ class Discount(Base):
     __tablename__ = "discounts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # NULL == "available" — unclaimed pool discount not yet awarded to anyone.
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     title: Mapped[str] = mapped_column(String(255))
     code: Mapped[str] = mapped_column(String(50))
     percent_off: Mapped[int] = mapped_column(nullable=False)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_used: Mapped[bool] = mapped_column(default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
+class FeedbackToken(Base):
+    """One-time-use link, minted when a payment succeeds, that lets a patient submit
+    feedback (and claim a pool discount) without being logged in."""
+
+    __tablename__ = "feedback_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    used: Mapped[bool] = mapped_column(default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )

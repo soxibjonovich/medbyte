@@ -1,3 +1,4 @@
+import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
@@ -9,7 +10,15 @@ from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Query, Upl
 
 from . import database_client, rabbitmq_client, rate_limit
 from .deps import get_current_user, require_admin
-from .schemas import Feedback, FeedbackTranscript, Question, Sentiment
+from .schemas import ClaimFeedbackResponse, Feedback, FeedbackTranscript, Question, Sentiment
+
+
+class HealthLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "/health" not in record.getMessage()
+
+
+logging.getLogger("uvicorn.access").addFilter(HealthLogFilter())
 
 AUDIO_STORAGE_DIR = Path(os.environ.get("AUDIO_STORAGE_DIR", "audio_uploads"))
 
@@ -56,34 +65,22 @@ async def _store_audio(audio_file: UploadFile) -> str:
     return str(destination)
 
 
-@router.post(
-    "",
-    response_model=Feedback,
-    status_code=status.HTTP_201_CREATED,
-    dependencies=[
-        Depends(rate_limit.rate_limit_dependency("create_feedback", limit=20, window_seconds=60))
-    ],
-)
-async def create_feedback(
-    appointment_id: int = Form(...),
-    professionalism: int = Form(...),
-    communication: int = Form(...),
-    punctuality: int = Form(...),
-    attentiveness: int = Form(...),
-    effectiveness: int = Form(...),
-    tags: list[str] = Form(default=[]),
-    text_comment: str | None = Form(default=None),
-    audio_file: UploadFile | None = None,
-    current_user: dict = Depends(get_current_user),
-):
-    appointment = await database_client.get_or_none(f"/appointments/{appointment_id}")
-    if appointment is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="appointment not found")
-    if appointment["user_id"] != current_user["id"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="not your appointment"
-        )
-
+async def _build_and_create_feedback(
+    user_id: int,
+    appointment: dict,
+    professionalism: int,
+    communication: int,
+    punctuality: int,
+    attentiveness: int,
+    effectiveness: int,
+    tags: list[str],
+    text_comment: str | None,
+    audio_file: UploadFile | None,
+) -> dict:
+    """Shared by the logged-in create_feedback endpoint and the unauthenticated
+    claim-by-token endpoint: validates ratings, builds the answers payload,
+    derives category_id, stores audio, creates the feedback row, and — if
+    audio was submitted — publishes the STT job."""
     submitted = (
         professionalism,
         communication,
@@ -137,8 +134,8 @@ async def create_feedback(
     created = await database_client.post(
         "/feedback",
         json={
-            "user_id": current_user["id"],
-            "appointment_id": appointment_id,
+            "user_id": user_id,
+            "appointment_id": appointment["id"],
             "hospital_id": appointment.get("hospital_id"),
             "doctor_id": appointment.get("doctor_id"),
             "category_id": category_id,
@@ -154,6 +151,110 @@ async def create_feedback(
         await rabbitmq_client.publish_stt_job(created["id"], stored_audio_path)
 
     return created
+
+
+@router.post(
+    "",
+    response_model=Feedback,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[
+        Depends(rate_limit.rate_limit_dependency("create_feedback", limit=20, window_seconds=60))
+    ],
+)
+async def create_feedback(
+    appointment_id: int = Form(...),
+    professionalism: int = Form(...),
+    communication: int = Form(...),
+    punctuality: int = Form(...),
+    attentiveness: int = Form(...),
+    effectiveness: int = Form(...),
+    tags: list[str] = Form(default=[]),
+    text_comment: str | None = Form(default=None),
+    audio_file: UploadFile | None = None,
+    current_user: dict = Depends(get_current_user),
+):
+    appointment = await database_client.get_or_none(f"/appointments/{appointment_id}")
+    if appointment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="appointment not found")
+    if appointment["user_id"] != current_user["id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="not your appointment"
+        )
+
+    return await _build_and_create_feedback(
+        current_user["id"],
+        appointment,
+        professionalism,
+        communication,
+        punctuality,
+        attentiveness,
+        effectiveness,
+        tags,
+        text_comment,
+        audio_file,
+    )
+
+
+@router.post(
+    "/claim/{token}",
+    response_model=ClaimFeedbackResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[
+        Depends(rate_limit.rate_limit_dependency("claim_feedback", limit=10, window_seconds=60))
+    ],
+)
+async def claim_feedback(
+    token: str,
+    professionalism: int = Form(...),
+    communication: int = Form(...),
+    punctuality: int = Form(...),
+    attentiveness: int = Form(...),
+    effectiveness: int = Form(...),
+    tags: list[str] = Form(default=[]),
+    text_comment: str | None = Form(default=None),
+    audio_file: UploadFile | None = None,
+):
+    """Unauthenticated: submit feedback via a one-time link (minted when a payment
+    succeeds) instead of being logged in. Redeems the token and, if the token was
+    still unused, tries to award a random pool discount to the token's owner."""
+    token_record = await database_client.get_or_none(f"/feedback-tokens/by-token/{token}")
+    if token_record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="invalid link")
+    if token_record["used"]:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="link already used")
+
+    appointment = await database_client.get_or_none(
+        f"/appointments/{token_record['appointment_id']}"
+    )
+    if appointment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="appointment not found")
+
+    created = await _build_and_create_feedback(
+        token_record["user_id"],
+        appointment,
+        professionalism,
+        communication,
+        punctuality,
+        attentiveness,
+        effectiveness,
+        tags,
+        text_comment,
+        audio_file,
+    )
+
+    await database_client.post(f"/feedback-tokens/{token}/redeem", json={})
+
+    discount = None
+    try:
+        discount = await database_client.post(
+            "/discounts/award-random", json={"user_id": token_record["user_id"]}
+        )
+    except HTTPException:
+        # 404 "no discounts available" is an expected, non-fatal outcome — the
+        # feedback must still be saved and returned even with no discount.
+        pass
+
+    return ClaimFeedbackResponse(feedback=created, discount=discount)
 
 
 @router.get("/questions/{appointment_id}", response_model=list[Question])

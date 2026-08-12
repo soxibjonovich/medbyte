@@ -90,7 +90,7 @@ class UpdateMedicalCategory(BaseModel):
 
 class Discount(BaseModel):
     id: int
-    user_id: int
+    user_id: int | None
     title: str
     code: str
     percent_off: int
@@ -100,7 +100,6 @@ class Discount(BaseModel):
 
 
 class CreateDiscount(BaseModel):
-    user_id: int
     title: str = Field(min_length=1, max_length=255)
     code: str = Field(min_length=1, max_length=50)
     percent_off: int = Field(ge=1, le=100)

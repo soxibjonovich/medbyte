@@ -169,7 +169,7 @@ class DiscountResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    user_id: int
+    user_id: int | None
     title: str
     code: str
     percent_off: int
@@ -179,7 +179,6 @@ class DiscountResponse(BaseModel):
 
 
 class CreateDiscountRequest(BaseModel):
-    user_id: int
     title: str = Field(min_length=1, max_length=255)
     code: str = Field(min_length=1, max_length=50)
     percent_off: int = Field(ge=1, le=100)
@@ -188,6 +187,22 @@ class CreateDiscountRequest(BaseModel):
 
 class UpdateDiscountRequest(BaseModel):
     is_used: bool | None = None
+
+
+class FeedbackTokenResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    token: str
+    appointment_id: int
+    user_id: int
+    used: bool
+    created_at: datetime
+
+
+class CreateFeedbackTokenRequest(BaseModel):
+    appointment_id: int
+    user_id: int
 
 
 class DoctorSummary(BaseModel):

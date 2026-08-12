@@ -34,6 +34,7 @@ import { Route as AdminAdminHospitalsRouteImport } from './routes/admin/_admin/h
 import { Route as AdminAdminQueueRouteImport } from './routes/admin/_admin/queue'
 import { Route as AdminAdminStatisticsRouteImport } from './routes/admin/_admin/statistics'
 import { Route as AdminAdminUsersRouteImport } from './routes/admin/_admin/users'
+import { Route as FeedbackClaimTokenRouteImport } from './routes/feedback.claim.$token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -160,6 +161,11 @@ const AdminAdminUsersRoute = AdminAdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AdminAdminRoute,
 } as any)
+const FeedbackClaimTokenRoute = FeedbackClaimTokenRouteImport.update({
+  id: '/feedback/claim/$token',
+  path: '/feedback/claim/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -186,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/admin/queue': typeof AdminAdminQueueRoute
   '/admin/statistics': typeof AdminAdminStatisticsRoute
   '/admin/users': typeof AdminAdminUsersRoute
+  '/feedback/claim/$token': typeof FeedbackClaimTokenRoute
   '/admin/': typeof AdminAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/admin/queue': typeof AdminAdminQueueRoute
   '/admin/statistics': typeof AdminAdminStatisticsRoute
   '/admin/users': typeof AdminAdminUsersRoute
+  '/feedback/claim/$token': typeof FeedbackClaimTokenRoute
   '/admin': typeof AdminAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -240,6 +248,7 @@ export interface FileRoutesById {
   '/admin/_admin/queue': typeof AdminAdminQueueRoute
   '/admin/_admin/statistics': typeof AdminAdminStatisticsRoute
   '/admin/_admin/users': typeof AdminAdminUsersRoute
+  '/feedback/claim/$token': typeof FeedbackClaimTokenRoute
   '/admin/_admin/': typeof AdminAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -269,6 +278,7 @@ export interface FileRouteTypes {
     | '/admin/queue'
     | '/admin/statistics'
     | '/admin/users'
+    | '/feedback/claim/$token'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/admin/queue'
     | '/admin/statistics'
     | '/admin/users'
+    | '/feedback/claim/$token'
     | '/admin'
   id:
     | '__root__'
@@ -322,6 +333,7 @@ export interface FileRouteTypes {
     | '/admin/_admin/queue'
     | '/admin/_admin/statistics'
     | '/admin/_admin/users'
+    | '/feedback/claim/$token'
     | '/admin/_admin/'
   fileRoutesById: FileRoutesById
 }
@@ -341,6 +353,7 @@ export interface RootRouteChildren {
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   ProfileAppointmentsRoute: typeof ProfileAppointmentsRoute
   ProfileIndexRoute: typeof ProfileIndexRoute
+  FeedbackClaimTokenRoute: typeof FeedbackClaimTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -520,6 +533,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAdminUsersRouteImport
       parentRoute: typeof AdminAdminRoute
     }
+    '/feedback/claim/$token': {
+      id: '/feedback/claim/$token'
+      path: '/feedback/claim/$token'
+      fullPath: '/feedback/claim/$token'
+      preLoaderRoute: typeof FeedbackClaimTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -569,6 +589,7 @@ const rootRouteChildren: RootRouteChildren = {
   PaymentSuccessRoute: PaymentSuccessRoute,
   ProfileAppointmentsRoute: ProfileAppointmentsRoute,
   ProfileIndexRoute: ProfileIndexRoute,
+  FeedbackClaimTokenRoute: FeedbackClaimTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

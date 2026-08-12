@@ -46,3 +46,22 @@ class FeedbackTranscript(BaseModel):
     sentiment: Sentiment | None
     keywords: list[str] | None
     processing_status: ProcessingStatus
+
+
+class DiscountAward(BaseModel):
+    """Local mirror of the database service's DiscountResponse — services don't
+    share schema modules, so this is redefined here for the claim-link response."""
+
+    id: int
+    user_id: int | None
+    title: str
+    code: str
+    percent_off: int
+    expires_at: datetime | None
+    is_used: bool
+    created_at: datetime
+
+
+class ClaimFeedbackResponse(BaseModel):
+    feedback: Feedback
+    discount: DiscountAward | None = None

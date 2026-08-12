@@ -43,6 +43,14 @@ from .schemas import (
 )
 
 
+class HealthLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "/health" not in record.getMessage()
+
+
+logging.getLogger("uvicorn.access").addFilter(HealthLogFilter())
+
+
 class ConnectionManager:
     """Tracks locally-connected websocket clients and fans out broadcast messages to them."""
 
@@ -376,15 +384,25 @@ async def test_feedback_push(appointment_id: int, actor: dict = Depends(require_
     entry = await database_client.get_or_none(f"/appointments/{appointment_id}")
     if entry is None:
         raise HTTPException(status_code=404, detail="appointment not found")
+    user = await database_client.get_or_none(f"/users/{entry['user_id']}")
+    email = (user or {}).get("email")
+    if not email:
+        raise HTTPException(status_code=404, detail="user has no email")
+    delay_ms = 1000
     await rabbitmq_client.publish_feedback_request(
         appointment_id=appointment_id,
         user_id=entry["user_id"],
         hospital_id=entry.get("hospital_id"),
         fire_at=datetime.now(timezone.utc).isoformat(),
-        delay_ms=1000,
+        delay_ms=delay_ms,
     )
     await _log(actor, "test_push", "appointment", appointment_id)
-    return {"scheduled": True, "appointment_id": appointment_id, "delay_ms": 1000}
+    return {
+        "scheduled": True,
+        "appointment_id": appointment_id,
+        "email": email,
+        "delay_ms": delay_ms,
+    }
 
 
 # --- questions -----------------------------------------------------------

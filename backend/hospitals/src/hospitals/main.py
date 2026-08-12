@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from urllib.parse import urlencode
 
@@ -13,6 +14,14 @@ from .schemas import (
     SortOption,
     UpdateHospital,
 )
+
+
+class HealthLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "/health" not in record.getMessage()
+
+
+logging.getLogger("uvicorn.access").addFilter(HealthLogFilter())
 
 
 @asynccontextmanager

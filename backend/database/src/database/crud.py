@@ -1,4 +1,5 @@
 import math
+import secrets
 from datetime import datetime
 
 from sqlalchemy import func, select
@@ -13,6 +14,7 @@ from .models import (
     Feedback,
     FeedbackProcessingStatus,
     FeedbackSentiment,
+    FeedbackToken,
     Hospital,
     MedicalCategory,
     Notification,
@@ -344,14 +346,15 @@ async def get_discount(session: AsyncSession, discount_id: int) -> Discount | No
 
 async def create_discount(
     session: AsyncSession,
-    user_id: int,
     title: str,
     code: str,
     percent_off: int,
     expires_at: datetime | None = None,
 ) -> Discount:
+    """New discounts always start unclaimed (user_id=None) — a pool entry waiting
+    to be awarded via award_random_discount()."""
     discount = Discount(
-        user_id=user_id, title=title, code=code, percent_off=percent_off, expires_at=expires_at
+        user_id=None, title=title, code=code, percent_off=percent_off, expires_at=expires_at
     )
     session.add(discount)
     await session.commit()
@@ -372,6 +375,59 @@ async def update_discount(
 async def delete_discount(session: AsyncSession, discount: Discount) -> None:
     await session.delete(discount)
     await session.commit()
+
+
+async def award_random_discount(session: AsyncSession, user_id: int) -> Discount | None:
+    """Pick one available (user_id IS NULL) discount at random and award it to user_id.
+
+    Uses SELECT ... FOR UPDATE SKIP LOCKED so two concurrent awards can't both
+    grab the same row: each racing transaction locks a distinct candidate row
+    (or finds none left), rather than both reading the same "available" row
+    before either commits.
+    """
+    stmt = (
+        select(Discount)
+        .where(Discount.user_id.is_(None))
+        .order_by(func.random())
+        .limit(1)
+        .with_for_update(skip_locked=True)
+    )
+    result = await session.execute(stmt)
+    discount = result.scalar_one_or_none()
+    if discount is None:
+        return None
+    discount.user_id = user_id
+    await session.commit()
+    await session.refresh(discount)
+    return discount
+
+
+async def create_feedback_token(
+    session: AsyncSession, appointment_id: int, user_id: int
+) -> FeedbackToken:
+    token = FeedbackToken(
+        token=secrets.token_urlsafe(24),
+        appointment_id=appointment_id,
+        user_id=user_id,
+    )
+    session.add(token)
+    await session.commit()
+    await session.refresh(token)
+    return token
+
+
+async def get_feedback_token_by_token(session: AsyncSession, token: str) -> FeedbackToken | None:
+    result = await session.execute(select(FeedbackToken).where(FeedbackToken.token == token))
+    return result.scalar_one_or_none()
+
+
+async def mark_feedback_token_used(
+    session: AsyncSession, token_obj: FeedbackToken
+) -> FeedbackToken:
+    token_obj.used = True
+    await session.commit()
+    await session.refresh(token_obj)
+    return token_obj
 
 
 def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:

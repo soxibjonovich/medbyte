@@ -190,13 +190,13 @@ async def test_create_payment_and_lookup_by_external_id(session):
 
 
 async def test_discount_lifecycle(session):
-    user = await crud.create_user(session, full_name="A", username="disc_u")
     discount = await crud.create_discount(
-        session, user_id=user.id, title="10% off", code="SAVE10", percent_off=10
+        session, title="10% off", code="SAVE10", percent_off=10
     )
     assert discount.is_used is False
+    assert discount.user_id is None
 
-    listed = await crud.list_discounts(session, user_id=user.id)
+    listed = await crud.list_discounts(session)
     assert len(listed) == 1
 
     updated = await crud.update_discount(session, discount, is_used=True)
@@ -204,6 +204,43 @@ async def test_discount_lifecycle(session):
 
     await crud.delete_discount(session, discount)
     assert await crud.get_discount(session, discount.id) is None
+
+
+async def test_award_random_discount_picks_available_and_sets_user(session):
+    user = await crud.create_user(session, full_name="A", username="award_u")
+    d1 = await crud.create_discount(session, title="10% off", code="SAVE10", percent_off=10)
+    d2 = await crud.create_discount(session, title="20% off", code="SAVE20", percent_off=20)
+
+    awarded = await crud.award_random_discount(session, user_id=user.id)
+    assert awarded is not None
+    assert awarded.id in (d1.id, d2.id)
+    assert awarded.user_id == user.id
+
+
+async def test_award_random_discount_returns_none_when_pool_empty(session):
+    user = await crud.create_user(session, full_name="B", username="award_u2")
+    assert await crud.award_random_discount(session, user_id=user.id) is None
+
+
+async def test_feedback_token_lifecycle(session):
+    user = await crud.create_user(session, full_name="C", username="token_u")
+    appointment = await crud.create_appointment(
+        session, user_id=user.id, scheduled_at=datetime.now(timezone.utc)
+    )
+    token = await crud.create_feedback_token(
+        session, appointment_id=appointment.id, user_id=user.id
+    )
+    assert token.used is False
+    assert len(token.token) > 0
+
+    fetched = await crud.get_feedback_token_by_token(session, token.token)
+    assert fetched is not None
+    assert fetched.id == token.id
+
+    used = await crud.mark_feedback_token_used(session, token)
+    assert used.used is True
+
+    assert await crud.get_feedback_token_by_token(session, "nonexistent") is None
 
 
 # --- hospitals / doctors / categories --------------------------------------
@@ -403,12 +440,8 @@ async def test_stats_overview(session):
         session, user_id=user.id, scheduled_at=datetime.now(timezone.utc)
     )
     await crud.create_feedback(session, user_id=user.id, appointment_id=appointment.id)
-    await crud.create_discount(
-        session, user_id=user.id, title="t", code="c", percent_off=10
-    )
-    discount2 = await crud.create_discount(
-        session, user_id=user.id, title="t2", code="c2", percent_off=20
-    )
+    await crud.create_discount(session, title="t", code="c", percent_off=10)
+    discount2 = await crud.create_discount(session, title="t2", code="c2", percent_off=20)
     await crud.update_discount(session, discount2, is_used=True)
 
     stats = await crud.get_stats_overview(session)

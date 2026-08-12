@@ -37,6 +37,7 @@ import {
 import { PageLoader } from '@/components/shared/loader'
 import { EmptyState } from '@/components/shared/empty-state'
 import { adminApi } from '@/lib/api'
+import { formatDateTime } from '@/lib/format'
 import type { Hospital } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -168,27 +169,37 @@ function AdminHospitalsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>ID</TableHead>
                 <TableHead>Name</TableHead>
+                <TableHead>Address</TableHead>
                 <TableHead>City</TableHead>
+                <TableHead>Lat</TableHead>
+                <TableHead>Lng</TableHead>
                 <TableHead>Rating</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(data ?? []).map((hospital) => (
                 <TableRow key={hospital.id}>
+                  <TableCell className="font-mono text-muted-foreground">{hospital.id}</TableCell>
                   <TableCell className="font-medium">{hospital.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{hospital.address}</TableCell>
                   <TableCell className="text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <MapPin className="size-3.5" /> {hospital.city}
                     </span>
                   </TableCell>
+                  <TableCell className="font-mono text-muted-foreground">{hospital.lat}</TableCell>
+                  <TableCell className="font-mono text-muted-foreground">{hospital.lng}</TableCell>
                   <TableCell>
                     <span className="flex items-center gap-1 text-sm">
                       <Star className="size-3.5 fill-amber-400 text-amber-400" />
                       {hospital.rating_avg.toFixed(1)}
                     </span>
                   </TableCell>
+                  <TableCell className="text-muted-foreground">{formatDateTime(hospital.created_at)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="icon-sm" onClick={() => openEdit(hospital)}>

@@ -11,6 +11,9 @@ RUN uv sync --frozen --no-dev
 
 FROM python:3.13-slim AS final
 
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN useradd --create-home --shell /usr/sbin/nologin appuser
 
 COPY --from=builder /app /app

@@ -3,8 +3,8 @@ import os
 import httpx
 from fastapi import HTTPException
 
-LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "http://172.16.8.197:1234/v1")
-LLM_MODEL = os.environ.get("LLM_MODEL", "qwen")
+LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "http://192.168.0.105:1234/v1")
+LLM_MODEL = os.environ.get("LLM_MODEL", "qwen/qwen3.5-9b")
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "lm-studio")
 
 _TIMEOUT = httpx.Timeout(60.0)
@@ -12,7 +12,7 @@ _TIMEOUT = httpx.Timeout(60.0)
 SYSTEM_PROMPT = (
     "You are a medical triage assistant for a hospital feedback platform. "
     "Given a patient's message, suggest which kind of doctor/specialist they should see "
-    "and why. Be concise."
+    "and why. Be concise, answer compact /no_think"
 )
 
 
@@ -28,7 +28,7 @@ async def chat(message: str, user_geo: str | None = None) -> str:
                     "model": LLM_MODEL,
                     "messages": [
                         {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": user_content},
+                        {"role": "user", "content": f"/no_think {user_content}"},
                     ],
                     "temperature": 0.3,
                 },

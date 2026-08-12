@@ -11,6 +11,27 @@ STT_POLL_TIMEOUT_SECONDS = float(os.environ.get("STT_POLL_TIMEOUT_SECONDS", "60"
 _TIMEOUT = httpx.Timeout(30.0)
 
 
+async def _to_wav(audio_bytes: bytes) -> bytes:
+    """Transcode arbitrary input audio (webm/opus, mp4, ogg, ...) to 16kHz mono WAV via ffmpeg."""
+    proc = await asyncio.create_subprocess_exec(
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel", "error",
+        "-i", "pipe:0",
+        "-ar", "16000",
+        "-ac", "1",
+        "-f", "wav",
+        "pipe:1",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    wav_bytes, stderr = await proc.communicate(input=audio_bytes)
+    if proc.returncode != 0 or not wav_bytes:
+        raise RuntimeError(f"audio conversion failed: {stderr.decode(errors='replace')[:200]}")
+    return wav_bytes
+
+
 async def transcribe(audio_path: str) -> str:
     """Read audio file, submit to muxlisa async STT, poll until done, return transcript."""
     if not STT_API_KEY:
@@ -19,6 +40,8 @@ async def transcribe(audio_path: str) -> str:
     with open(audio_path, "rb") as audio_fh:
         audio_bytes = audio_fh.read()
 
+    wav_bytes = await _to_wav(audio_bytes)
+    wav_filename = os.path.splitext(os.path.basename(audio_path))[0] + ".wav"
     headers = {"x-api-key": STT_API_KEY}
 
     async with httpx.AsyncClient(base_url=STT_BASE_URL, timeout=_TIMEOUT) as client:
@@ -26,7 +49,7 @@ async def transcribe(audio_path: str) -> str:
             submit = await client.post(
                 "/async/stt",
                 headers=headers,
-                files={"audio": (os.path.basename(audio_path), audio_bytes)},
+                files={"audio": (wav_filename, wav_bytes, "audio/wav")},
             )
         except httpx.HTTPError:
             raise RuntimeError("STT service unavailable")

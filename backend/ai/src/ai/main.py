@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, Depends, FastAPI, Form, UploadFile
@@ -5,6 +6,14 @@ from fastapi import APIRouter, Depends, FastAPI, Form, UploadFile
 from . import database_client, llm_client, stt_client
 from .deps import get_current_user
 from .schemas import AudioTranscriptResponse, ChatRequest, ChatResponse
+
+
+class HealthLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "/health" not in record.getMessage()
+
+
+logging.getLogger("uvicorn.access").addFilter(HealthLogFilter())
 
 
 @asynccontextmanager
@@ -24,7 +33,7 @@ async def health():
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(payload: ChatRequest, current_user: dict = Depends(get_current_user)):
+async def chat(payload: ChatRequest, _: dict = Depends(get_current_user)):
     reply = await llm_client.chat(payload.message, payload.user_geo)
     return ChatResponse(conversation_id=payload.conversation_id, reply=reply)
 

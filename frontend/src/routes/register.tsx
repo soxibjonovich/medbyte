@@ -20,7 +20,7 @@ const schema = z
       .min(3, 'Username must be at least 3 characters')
       .regex(/^[a-zA-Z0-9_]+$/, 'Letters, numbers and underscores only'),
     phone: z.string().min(9, 'Enter a valid phone number').optional().or(z.literal('')),
-    email: z.string().email('Enter a valid email').optional().or(z.literal('')),
+    email: z.string().min(1, 'Email is required').email('Enter a valid email'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirm: z.string().min(1, 'Confirm your password'),
   })
@@ -51,7 +51,7 @@ function RegisterPage() {
         full_name: values.full_name,
         username: values.username,
         phone: values.phone || undefined,
-        email: values.email || undefined,
+        email: values.email,
         password: values.password,
       })
       setSession(res.access_token, res.user)
@@ -98,7 +98,7 @@ function RegisterPage() {
           {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="email">Email (optional)</Label>
+          <Label htmlFor="email">Email</Label>
           <Input id="email" type="email" autoComplete="email" {...register('email')} />
           {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
         </div>

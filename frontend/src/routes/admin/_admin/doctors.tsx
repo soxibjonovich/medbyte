@@ -165,6 +165,7 @@ function AdminDoctorsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>ID</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Hospital</TableHead>
                 <TableHead>Category</TableHead>
@@ -176,6 +177,7 @@ function AdminDoctorsPage() {
             <TableBody>
               {(data ?? []).map((doctor) => (
                 <TableRow key={doctor.id}>
+                  <TableCell className="font-mono text-muted-foreground">{doctor.id}</TableCell>
                   <TableCell className="font-medium">{doctor.full_name}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {hospitalName(doctor.hospital_id)}

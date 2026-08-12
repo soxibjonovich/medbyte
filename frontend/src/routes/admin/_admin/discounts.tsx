@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, Copy } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -47,7 +48,6 @@ export const Route = createFileRoute('/admin/_admin/discounts')({
 })
 
 interface DiscountForm {
-  user_id: string
   title: string
   code: string
   percent_off: string
@@ -55,7 +55,6 @@ interface DiscountForm {
 }
 
 const emptyForm = (): DiscountForm => ({
-  user_id: '',
   title: '',
   code: '',
   percent_off: '10',
@@ -116,7 +115,6 @@ function AdminDiscountsPage() {
   const openEdit = (discount: Discount) => {
     setEditing(discount)
     setForm({
-      user_id: String(discount.user_id),
       title: discount.title,
       code: discount.code,
       percent_off: String(discount.percent_off),
@@ -127,10 +125,6 @@ function AdminDiscountsPage() {
 
   const submit = () => {
     if (editing) {
-      if (!form.user_id) {
-        toast.error('User is required')
-        return
-      }
       updateMutation.mutate({ id: editing.id, is_used: editing.is_used })
       setDialogOpen(false)
       return
@@ -186,7 +180,13 @@ function AdminDiscountsPage() {
                   <TableCell className="font-mono text-muted-foreground">{discount.id}</TableCell>
                   <TableCell className="font-mono font-semibold">{discount.code}</TableCell>
                   <TableCell>{discount.title}</TableCell>
-                  <TableCell className="text-muted-foreground">{userName(discount.user_id)}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {discount.user_id == null ? (
+                      <Badge variant="secondary">Available</Badge>
+                    ) : (
+                      userName(discount.user_id)
+                    )}
+                  </TableCell>
                   <TableCell>{discount.percent_off}%</TableCell>
                   <TableCell className="text-muted-foreground">
                     {discount.expires_at ? formatDate(discount.expires_at) : '—'}
@@ -242,21 +242,6 @@ function AdminDiscountsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Patient</Label>
-              <select
-                value={form.user_id}
-                onChange={(e) => setForm({ ...form, user_id: e.target.value })}
-                className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="">Select user…</option>
-                {(users.data ?? []).map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.full_name} ({u.phone ?? u.email ?? `#${u.id}`})
-                  </option>
-                ))}
-              </select>
-            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Title</Label>
@@ -298,7 +283,7 @@ function AdminDiscountsPage() {
             </Button>
             <Button
               onClick={submit}
-              disabled={busy || !form.code.trim() || !form.title.trim() || !form.user_id}
+              disabled={busy || !form.code.trim() || !form.title.trim()}
             >
               {busy ? 'Saving…' : editing ? 'Save changes' : 'Create discount'}
             </Button>
@@ -311,7 +296,8 @@ function AdminDiscountsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Deactivate discount?</AlertDialogTitle>
             <AlertDialogDescription>
-              Code “{deleting?.code}” will be deactivated for user {deleting ? userName(deleting.user_id) : ''}.
+              Code “{deleting?.code}” will be deactivated
+              {deleting?.user_id != null ? ` for user ${userName(deleting.user_id)}` : ' from the pool'}.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -330,12 +316,11 @@ function AdminDiscountsPage() {
 }
 
 function toPayload(form: DiscountForm) {
-  if (!form.code.trim() || !form.title.trim() || !form.user_id) {
-    toast.error('Code, title and user are required')
+  if (!form.code.trim() || !form.title.trim()) {
+    toast.error('Code and title are required')
     return null
   }
   return {
-    user_id: Number(form.user_id),
     title: form.title.trim(),
     code: form.code.trim().toUpperCase(),
     percent_off: Math.min(100, Math.max(1, Number(form.percent_off) || 10)),

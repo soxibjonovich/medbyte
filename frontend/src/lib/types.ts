@@ -107,7 +107,7 @@ export interface CheckoutResponse {
 
 export interface Discount {
   id: number
-  user_id: number
+  user_id: number | null
   title: string
   code: string
   percent_off: number

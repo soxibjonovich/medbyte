@@ -1,4 +1,4 @@
-import { databaseApi, notificationsApi } from './api'
+import { databaseApi } from './api'
 import type { User } from './types'
 
 export async function notifyLogin(user: User) {
@@ -7,12 +7,8 @@ export async function notifyLogin(user: User) {
   const message = `You're signed in to MedByte. New discounts and updates are waiting for you.`
 
   try {
-    await notificationsApi.send({ title, message })
+    await databaseApi.createNotification({ user_id: user.id, title, message })
   } catch {
-    try {
-      await databaseApi.createNotification({ user_id: user.id, title, message })
-    } catch {
-      /* best-effort */
-    }
+    /* best-effort */
   }
 }

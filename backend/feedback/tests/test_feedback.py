@@ -462,3 +462,143 @@ async def test_get_transcript_success(client, patch_db):
     resp = await client.get("/api/feedback/1/transcript", headers=_auth_header())
     assert resp.status_code == 200
     assert resp.json()["transcript"] == "hello there"
+
+
+# --- claim feedback (unauthenticated, via one-time link) -------------------
+
+
+def _token_record(**overrides):
+    record = {
+        "id": 1,
+        "token": "tok_abc",
+        "appointment_id": 1,
+        "user_id": 1,
+        "used": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    record.update(overrides)
+    return record
+
+
+def _claim_get_or_none_router(token_record=None, appointment=None, doctor=None):
+    async def _dispatch(path):
+        if path.startswith("/feedback-tokens/by-token/"):
+            return token_record
+        if path.startswith("/appointments/"):
+            return appointment
+        if path.startswith("/doctors/"):
+            return doctor
+        return None
+
+    return _dispatch
+
+
+def _created_feedback(**overrides):
+    record = {
+        "id": 20,
+        "user_id": 1,
+        "appointment_id": 1,
+        "hospital_id": 2,
+        "doctor_id": None,
+        "category_id": None,
+        "rating": 4.4,
+        "tags": [],
+        "text_comment": None,
+        "answers": [],
+        "audio_file": None,
+        "transcript": None,
+        "sentiment": None,
+        "processing_status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    record.update(overrides)
+    return record
+
+
+async def test_claim_feedback_invalid_token(client, patch_db):
+    patch_db.get_or_none.side_effect = _claim_get_or_none_router(token_record=None)
+    resp = await client.post(
+        "/api/feedback/claim/bad-token", data={**_ratings_data()}
+    )
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "invalid link"
+
+
+async def test_claim_feedback_already_used(client, patch_db):
+    patch_db.get_or_none.side_effect = _claim_get_or_none_router(
+        token_record=_token_record(used=True)
+    )
+    resp = await client.post(
+        "/api/feedback/claim/tok_abc", data={**_ratings_data()}
+    )
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "link already used"
+
+
+async def test_claim_feedback_success_awards_discount(client, patch_db, patch_rabbitmq):
+    patch_db.get_or_none.side_effect = _claim_get_or_none_router(
+        token_record=_token_record(),
+        appointment=_appointment(hospital_id=2, doctor_id=None),
+    )
+    patch_db.post.side_effect = None
+
+    async def _post(path, json=None):
+        if path == "/feedback":
+            return _created_feedback()
+        if path.endswith("/redeem"):
+            return _token_record(used=True)
+        if path == "/discounts/award-random":
+            return {
+                "id": 5,
+                "user_id": 1,
+                "title": "10% off",
+                "code": "SAVE10",
+                "percent_off": 10,
+                "expires_at": None,
+                "is_used": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        raise AssertionError(f"unexpected post path {path}")
+
+    patch_db.post.side_effect = _post
+
+    resp = await client.post(
+        "/api/feedback/claim/tok_abc", data={**_ratings_data()}
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["feedback"]["id"] == 20
+    assert body["discount"]["code"] == "SAVE10"
+
+    redeem_call = [c for c in patch_db.post.call_args_list if c.args[0].endswith("/redeem")]
+    assert len(redeem_call) == 1
+
+
+async def test_claim_feedback_no_discount_available_still_returns_feedback(
+    client, patch_db, patch_rabbitmq
+):
+    from fastapi import HTTPException
+
+    patch_db.get_or_none.side_effect = _claim_get_or_none_router(
+        token_record=_token_record(),
+        appointment=_appointment(hospital_id=2, doctor_id=None),
+    )
+
+    async def _post(path, json=None):
+        if path == "/feedback":
+            return _created_feedback()
+        if path.endswith("/redeem"):
+            return _token_record(used=True)
+        if path == "/discounts/award-random":
+            raise HTTPException(status_code=404, detail="no discounts available")
+        raise AssertionError(f"unexpected post path {path}")
+
+    patch_db.post.side_effect = _post
+
+    resp = await client.post(
+        "/api/feedback/claim/tok_abc", data={**_ratings_data()}
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["feedback"]["id"] == 20
+    assert body["discount"] is None

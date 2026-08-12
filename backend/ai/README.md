@@ -16,8 +16,8 @@ client-side threading).
 
 `src/ai/llm_client.py` calls an OpenAI-compatible chat-completions endpoint —
 currently Qwen served by LM Studio at `LLM_BASE_URL` (default
-`http://172.16.8.197:1234/v1`). Set `LLM_MODEL` to the exact model id LM Studio
-reports at `GET /v1/models` if it differs from the default.
+`http://192.168.0.105:1234/v1`, model id `qwen/qwen3.5-9b`). Set `LLM_MODEL` to
+the exact model id LM Studio reports at `GET /v1/models` if it differs.
 
 ## STT backend
 

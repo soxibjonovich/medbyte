@@ -27,10 +27,15 @@ def _user_record(**overrides):
 
 
 async def test_register_creates_user_and_returns_token(client, patch_db):
-    patch_db.post.return_value = _user_record()
+    patch_db.post.return_value = _user_record(email="aziz@example.com")
     resp = await client.post(
         "/api/v1/auth/register",
-        json={"full_name": "Aziz Karimov", "username": "aziz_k", "password": "password123"},
+        json={
+            "full_name": "Aziz Karimov",
+            "username": "aziz_k",
+            "email": "aziz@example.com",
+            "password": "password123",
+        },
     )
     assert resp.status_code == 201
     body = resp.json()
@@ -64,7 +69,12 @@ async def test_register_rate_limited_returns_429(client, patch_db, monkeypatch):
 
     resp = await client.post(
         "/api/v1/auth/register",
-        json={"full_name": "Aziz Karimov", "username": "aziz_k", "password": "password123"},
+        json={
+            "full_name": "Aziz Karimov",
+            "username": "aziz_k",
+            "email": "aziz@example.com",
+            "password": "password123",
+        },
     )
     assert resp.status_code == 429
     assert resp.headers["retry-after"] == "60"
