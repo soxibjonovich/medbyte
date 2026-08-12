@@ -1,6 +1,10 @@
+import asyncio
 import os
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 DATABASE_URL = os.environ.get(
@@ -17,7 +21,13 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_models() -> None:
-    from .models import Base
+    def _upgrade() -> None:
+        alembic_ini = Path(__file__).resolve().parent.parent.parent / "alembic.ini"
+        cfg = Config(str(alembic_ini))
+        cfg.set_main_option(
+            "script_location", str(alembic_ini.parent / "migrations")
+        )
+        command.upgrade(cfg, "head")
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _upgrade)

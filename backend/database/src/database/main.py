@@ -18,6 +18,7 @@ from .schemas import (
     CreateHospitalRequest,
     CreateMedicalCategoryRequest,
     CreateNotificationRequest,
+    CreatePushSubscriptionRequest,
     CreateUserRequest,
     DiscountResponse,
     DoctorResponse,
@@ -27,7 +28,10 @@ from .schemas import (
     HospitalLeaderboardEntry,
     HospitalResponse,
     MedicalCategoryResponse,
+    CreatePaymentRequest,
     NotificationResponse,
+    PaymentResponse,
+    PushSubscriptionResponse,
     StatsOverview,
     UpdateAppointmentRequest,
     UpdateDiscountRequest,
@@ -36,6 +40,7 @@ from .schemas import (
     UpdateHospitalRequest,
     UpdateMedicalCategoryRequest,
     UpdateNotificationRequest,
+    UpdatePaymentRequest,
     UpdateUserRequest,
     UserResponse,
     UserWithSecret,
@@ -70,6 +75,13 @@ async def list_users_endpoint(
 async def create_user_endpoint(
     payload: CreateUserRequest, session: AsyncSession = Depends(get_session)
 ):
+    if (
+        payload.username
+        and await crud.get_user_by_username(session, payload.username) is not None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="username already registered"
+        )
     if payload.phone and await crud.get_user_by_phone(session, payload.phone) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="phone already registered"
@@ -82,6 +94,7 @@ async def create_user_endpoint(
     return await crud.create_user(
         session,
         full_name=payload.full_name,
+        username=payload.username,
         phone=payload.phone,
         email=payload.email,
         password_hash=payload.password_hash,
@@ -92,6 +105,19 @@ async def create_user_endpoint(
 @app.get("/users/{user_id}", response_model=UserResponse)
 async def get_user_endpoint(user_id: int, session: AsyncSession = Depends(get_session)):
     user = await crud.get_user(session, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
+    return user
+
+
+@app.get(
+    "/users/by-username/{username}", response_model=UserWithSecret, include_in_schema=False
+)
+async def get_user_by_username_endpoint(
+    username: str, session: AsyncSession = Depends(get_session)
+):
+    """Internal lookup for other services (e.g. auth) — includes password_hash."""
+    user = await crud.get_user_by_username(session, username)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
     return user
@@ -123,6 +149,11 @@ async def update_user_endpoint(
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
 
+    if payload.username and payload.username != user.username:
+        if await crud.get_user_by_username(session, payload.username) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="username already registered"
+            )
     if payload.phone and payload.phone != user.phone:
         if await crud.get_user_by_phone(session, payload.phone) is not None:
             raise HTTPException(
@@ -138,6 +169,7 @@ async def update_user_endpoint(
         session,
         user,
         full_name=payload.full_name,
+        username=payload.username,
         phone=payload.phone,
         email=payload.email,
         role=payload.role,
@@ -266,6 +298,77 @@ async def delete_notification_endpoint(
     if notification is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="notification not found")
     await crud.delete_notification(session, notification)
+
+
+@app.post(
+    "/push-subscriptions",
+    response_model=PushSubscriptionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_push_subscription_endpoint(
+    payload: CreatePushSubscriptionRequest, session: AsyncSession = Depends(get_session)
+):
+    if await crud.get_user(session, payload.user_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
+    existing = await crud.get_push_subscription_by_endpoint(session, payload.endpoint)
+    if existing is not None:
+        return existing
+    return await crud.create_push_subscription(
+        session,
+        user_id=payload.user_id,
+        endpoint=payload.endpoint,
+        p256dh=payload.p256dh,
+        auth_key=payload.auth_key,
+    )
+
+
+@app.post("/payments", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
+async def create_payment_endpoint(
+    payload: CreatePaymentRequest, session: AsyncSession = Depends(get_session)
+):
+    if await crud.get_user(session, payload.user_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
+    if await crud.get_appointment(session, payload.appointment_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="appointment not found")
+    return await crud.create_payment(
+        session,
+        user_id=payload.user_id,
+        appointment_id=payload.appointment_id,
+        provider=payload.provider,
+        amount=payload.amount,
+        currency=payload.currency,
+    )
+
+
+@app.get("/payments/by-external/{external_id}", response_model=PaymentResponse, include_in_schema=False)
+async def get_payment_by_external_endpoint(
+    external_id: str, session: AsyncSession = Depends(get_session)
+):
+    """Internal lookup for the payment service's provider webhook handlers."""
+    payment = await crud.get_payment_by_external_id(session, external_id)
+    if payment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="payment not found")
+    return payment
+
+
+@app.get("/payments/{payment_id}", response_model=PaymentResponse)
+async def get_payment_endpoint(payment_id: int, session: AsyncSession = Depends(get_session)):
+    payment = await crud.get_payment(session, payment_id)
+    if payment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="payment not found")
+    return payment
+
+
+@app.patch("/payments/{payment_id}", response_model=PaymentResponse)
+async def update_payment_endpoint(
+    payment_id: int, payload: UpdatePaymentRequest, session: AsyncSession = Depends(get_session)
+):
+    payment = await crud.get_payment(session, payment_id)
+    if payment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="payment not found")
+    return await crud.update_payment(
+        session, payment, external_id=payload.external_id, status_=payload.status
+    )
 
 
 @app.get("/discounts", response_model=list[DiscountResponse])

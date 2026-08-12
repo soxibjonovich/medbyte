@@ -2,39 +2,88 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from .models import AppointmentStatus, FeedbackProcessingStatus, FeedbackSentiment, UserRole
+from .models import (
+    AppointmentStatus,
+    FeedbackProcessingStatus,
+    FeedbackSentiment,
+    PaymentProvider,
+    PaymentStatus,
+    UserRole,
+)
 
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    full_name: str
-    phone: str | None
-    email: str | None
-    role: UserRole
-    created_at: datetime
+    id: int = Field(description="Unique user id", examples=[1])
+    full_name: str = Field(description="User's display name", examples=["Aziz Karimov"])
+    username: str | None = Field(
+        default=None, description="Unique login handle, null for OAuth-only accounts", examples=["aziz_k"]
+    )
+    phone: str | None = Field(
+        default=None, description="Contact phone in E.164-ish format", examples=["+998901234567"]
+    )
+    email: str | None = Field(default=None, description="Contact email", examples=["aziz@example.com"])
+    role: UserRole = Field(description="Access role: patient, staff, or admin", examples=[UserRole.patient])
+    created_at: datetime = Field(description="Account creation timestamp (UTC)")
 
 
 class CreateUserRequest(BaseModel):
-    full_name: str = Field(min_length=2, max_length=255)
-    phone: str | None = Field(default=None, min_length=9, max_length=20)
-    email: EmailStr | None = None
-    password_hash: str | None = None
-    role: UserRole = UserRole.patient
+    full_name: str = Field(
+        min_length=2, max_length=255, title="Full name", description="User's display name", examples=["Aziz Karimov"]
+    )
+    username: str | None = Field(
+        default=None,
+        min_length=3,
+        max_length=50,
+        pattern=r"^[a-zA-Z0-9_]+$",
+        title="Username",
+        description="Unique login handle, letters/digits/underscore only",
+        examples=["aziz_k"],
+    )
+    phone: str | None = Field(
+        default=None,
+        min_length=9,
+        max_length=20,
+        title="Phone",
+        description="Contact phone number",
+        examples=["+998901234567"],
+    )
+    email: EmailStr | None = Field(
+        default=None, title="Email", description="Contact email address", examples=["aziz@example.com"]
+    )
+    password_hash: str | None = Field(
+        default=None, title="Password hash", description="Pre-hashed password, never plaintext"
+    )
+    role: UserRole = Field(
+        default=UserRole.patient, title="Role", description="Access role assigned on creation", examples=[UserRole.patient]
+    )
 
 
 class UserWithSecret(UserResponse):
     """Internal, service-to-service only: includes password_hash. Never expose publicly."""
 
-    password_hash: str | None = None
+    password_hash: str | None = Field(default=None, description="Hashed password, internal use only")
 
 
 class UpdateUserRequest(BaseModel):
-    full_name: str | None = Field(default=None, min_length=2, max_length=255)
-    phone: str | None = Field(default=None, min_length=9, max_length=20)
-    email: EmailStr | None = None
-    role: UserRole | None = None
+    full_name: str | None = Field(
+        default=None, min_length=2, max_length=255, title="Full name", description="New display name"
+    )
+    username: str | None = Field(
+        default=None,
+        min_length=3,
+        max_length=50,
+        pattern=r"^[a-zA-Z0-9_]+$",
+        title="Username",
+        description="New login handle, letters/digits/underscore only",
+        examples=["aziz_k"],
+    )
+    phone: str | None = Field(
+        default=None, min_length=9, max_length=20, title="Phone", description="New contact phone number"
+    )
+    email: EmailStr | None = Field(default=None, title="Email", description="New contact email address")
+    role: UserRole | None = Field(default=None, title="Role", description="New access role")
 
 
 class AppointmentResponse(BaseModel):
@@ -86,6 +135,52 @@ class CreateNotificationRequest(BaseModel):
 
 class UpdateNotificationRequest(BaseModel):
     is_read: bool | None = None
+
+
+class PushSubscriptionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    endpoint: str
+    p256dh: str
+    auth_key: str
+    created_at: datetime
+
+
+class CreatePushSubscriptionRequest(BaseModel):
+    user_id: int
+    endpoint: str = Field(min_length=1, max_length=1000)
+    p256dh: str = Field(min_length=1, max_length=255)
+    auth_key: str = Field(min_length=1, max_length=255)
+
+
+class PaymentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    appointment_id: int
+    provider: PaymentProvider
+    external_id: str | None
+    amount: int
+    currency: str
+    status: PaymentStatus
+    created_at: datetime
+    updated_at: datetime
+
+
+class CreatePaymentRequest(BaseModel):
+    user_id: int
+    appointment_id: int
+    provider: PaymentProvider
+    amount: int = Field(gt=0)
+    currency: str = Field(default="usd", min_length=3, max_length=10)
+
+
+class UpdatePaymentRequest(BaseModel):
+    external_id: str | None = None
+    status: PaymentStatus | None = None
 
 
 class DiscountResponse(BaseModel):

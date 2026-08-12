@@ -124,6 +124,31 @@ class CategoryVisitStat(BaseModel):
     visit_count: int
 
 
+class QueueEntry(BaseModel):
+    id: int
+    user_id: int
+    hospital_id: int | None
+    doctor_id: int | None
+    queue_number: int | None
+    status: Literal["scheduled", "completed", "cancelled"]
+    scheduled_at: datetime
+    created_at: datetime
+
+
+class CreateQueueEntry(BaseModel):
+    user_id: int = Field(title="Patient id", description="Id of patient added to queue", examples=[1])
+    hospital_id: int | None = Field(
+        default=None, title="Hospital id", description="Hospital where patient queued", examples=[1]
+    )
+    doctor_id: int | None = Field(
+        default=None, title="Doctor id", description="Doctor patient queued for", examples=[1]
+    )
+    queue_number: int | None = Field(
+        default=None, title="Queue number", description="Position in queue", examples=[1]
+    )
+    scheduled_at: datetime = Field(title="Scheduled at", description="Queue entry time")
+
+
 class AuditLogEntry(BaseModel):
     id: int
     actor_id: int

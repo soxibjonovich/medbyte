@@ -16,6 +16,10 @@ from .models import (
     Hospital,
     MedicalCategory,
     Notification,
+    Payment,
+    PaymentProvider,
+    PaymentStatus,
+    PushSubscription,
     User,
     UserRole,
 )
@@ -35,6 +39,11 @@ async def get_user_by_phone(session: AsyncSession, phone: str) -> User | None:
     return result.scalar_one_or_none()
 
 
+async def get_user_by_username(session: AsyncSession, username: str) -> User | None:
+    result = await session.execute(select(User).where(User.username == username))
+    return result.scalar_one_or_none()
+
+
 async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
     result = await session.execute(select(User).where(User.email == email))
     return result.scalar_one_or_none()
@@ -43,6 +52,7 @@ async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
 async def create_user(
     session: AsyncSession,
     full_name: str,
+    username: str | None = None,
     phone: str | None = None,
     email: str | None = None,
     password_hash: str | None = None,
@@ -50,6 +60,7 @@ async def create_user(
 ) -> User:
     user = User(
         full_name=full_name,
+        username=username,
         phone=phone,
         email=email,
         password_hash=password_hash,
@@ -65,12 +76,15 @@ async def update_user(
     session: AsyncSession,
     user: User,
     full_name: str | None = None,
+    username: str | None = None,
     phone: str | None = None,
     email: str | None = None,
     role: UserRole | None = None,
 ) -> User:
     if full_name is not None:
         user.full_name = full_name
+    if username is not None:
+        user.username = username
     if phone is not None:
         user.phone = phone
     if email is not None:
@@ -191,6 +205,72 @@ async def update_notification(
 async def delete_notification(session: AsyncSession, notification: Notification) -> None:
     await session.delete(notification)
     await session.commit()
+
+
+async def get_push_subscription_by_endpoint(
+    session: AsyncSession, endpoint: str
+) -> PushSubscription | None:
+    result = await session.execute(
+        select(PushSubscription).where(PushSubscription.endpoint == endpoint)
+    )
+    return result.scalar_one_or_none()
+
+
+async def create_push_subscription(
+    session: AsyncSession, user_id: int, endpoint: str, p256dh: str, auth_key: str
+) -> PushSubscription:
+    subscription = PushSubscription(
+        user_id=user_id, endpoint=endpoint, p256dh=p256dh, auth_key=auth_key
+    )
+    session.add(subscription)
+    await session.commit()
+    await session.refresh(subscription)
+    return subscription
+
+
+async def get_payment(session: AsyncSession, payment_id: int) -> Payment | None:
+    return await session.get(Payment, payment_id)
+
+
+async def get_payment_by_external_id(session: AsyncSession, external_id: str) -> Payment | None:
+    result = await session.execute(select(Payment).where(Payment.external_id == external_id))
+    return result.scalar_one_or_none()
+
+
+async def create_payment(
+    session: AsyncSession,
+    user_id: int,
+    appointment_id: int,
+    provider: PaymentProvider,
+    amount: int,
+    currency: str,
+) -> Payment:
+    payment = Payment(
+        user_id=user_id,
+        appointment_id=appointment_id,
+        provider=provider,
+        amount=amount,
+        currency=currency,
+    )
+    session.add(payment)
+    await session.commit()
+    await session.refresh(payment)
+    return payment
+
+
+async def update_payment(
+    session: AsyncSession,
+    payment: Payment,
+    external_id: str | None = None,
+    status_: PaymentStatus | None = None,
+) -> Payment:
+    if external_id is not None:
+        payment.external_id = external_id
+    if status_ is not None:
+        payment.status = status_
+    await session.commit()
+    await session.refresh(payment)
+    return payment
 
 
 async def list_discounts(

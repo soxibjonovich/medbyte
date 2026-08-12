@@ -31,6 +31,7 @@ async def main() -> None:
             User(
                 id=1,
                 full_name="admin",
+                username="admin",
                 phone="admin",
                 email=None,
                 password_hash=password_hash,

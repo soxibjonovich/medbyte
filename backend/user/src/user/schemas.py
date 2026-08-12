@@ -6,9 +6,10 @@ from pydantic import BaseModel, EmailStr, Field
 class User(BaseModel):
     id: int
     full_name: str
+    username: str | None
     phone: str | None
     email: EmailStr | None
-    role: Literal["patient", "admin"]
+    role: Literal["patient", "staff", "admin"]
     created_at: datetime
 
 

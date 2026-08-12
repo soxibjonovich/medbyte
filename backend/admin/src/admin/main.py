@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
 
 from . import database_client
-from .deps import require_admin
+from .deps import require_admin, require_staff
 from .schemas import (
     AuditLogEntry,
     CategoryVisitStat,
@@ -13,11 +13,13 @@ from .schemas import (
     CreateDoctor,
     CreateHospital,
     CreateMedicalCategory,
+    CreateQueueEntry,
     Discount,
     Doctor,
     Hospital,
     HospitalDetail,
     MedicalCategory,
+    QueueEntry,
     SortOption,
     StatsOverview,
     UpdateDiscount,
@@ -41,6 +43,7 @@ hospitals_router = APIRouter(prefix="/api/hospitals", dependencies=[Depends(requ
 doctors_router = APIRouter(prefix="/api/doctors", dependencies=[Depends(require_admin)])
 categories_router = APIRouter(prefix="/api/categories", dependencies=[Depends(require_admin)])
 discounts_router = APIRouter(prefix="/api/discounts", dependencies=[Depends(require_admin)])
+queue_router = APIRouter(prefix="/api/queue", dependencies=[Depends(require_staff)])
 
 
 @app.get("/health")
@@ -286,8 +289,33 @@ async def delete_discount(discount_id: int, actor: dict = Depends(require_admin)
     await _log(actor, "delete", "discount", discount_id)
 
 
+# --- queue ---------------------------------------------------------------
+
+
+@queue_router.get("", response_model=list[QueueEntry])
+async def list_queue(
+    hospital_id: int | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+):
+    params = {
+        k: v
+        for k, v in {"hospital_id": hospital_id, "limit": limit, "offset": offset}.items()
+        if v is not None
+    }
+    return await database_client.get(f"/appointments?{urlencode(params)}")
+
+
+@queue_router.post("", response_model=QueueEntry, status_code=201)
+async def create_queue_entry(payload: CreateQueueEntry, actor: dict = Depends(require_staff)):
+    entry = await database_client.post("/appointments", json=payload.model_dump())
+    await _log(actor, "create", "queue_entry", entry["id"])
+    return entry
+
+
 app.include_router(stats_router)
 app.include_router(hospitals_router)
 app.include_router(doctors_router)
 app.include_router(categories_router)
 app.include_router(discounts_router)
+app.include_router(queue_router)
