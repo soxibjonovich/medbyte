@@ -1,0 +1,24 @@
+const env = import.meta.env
+
+/**
+ * Base URLs for the backend services. In development these are relative paths
+ * that are proxied by Vite (see vite.config.ts). In production set the
+ * VITE_*_API_URL env vars (or let Nginx route the relative paths).
+ */
+export const API = {
+  auth: (env.VITE_AUTH_API_URL as string) ?? '/api/v1/auth',
+  hospitals: (env.VITE_HOSPITALS_API_URL as string) ?? '/api/hospitals',
+  feedback: (env.VITE_FEEDBACK_API_URL as string) ?? '/api/feedback',
+  admin: (env.VITE_ADMIN_API_URL as string) ?? '/api/admin',
+  database: (env.VITE_DATABASE_API_URL as string) ?? '/api/v1/database',
+  ai: (env.VITE_AI_API_URL as string) ?? '/api/ai',
+  notifications: (env.VITE_NOTIFICATIONS_API_URL as string) ?? '/api/notifications',
+}
+
+/**
+ * VAPID public key used by the browser to subscribe to Web Push.
+ * Override with VITE_VAPID_PUBLIC_KEY if the backend uses a different key pair.
+ */
+export const VAPID_PUBLIC_KEY =
+  (env.VITE_VAPID_PUBLIC_KEY as string) ??
+  'BPIqdANAE79Bq1fmjqn1JopOv_bJRPabGbz6jEduTbHj5dsGs8Gd1aBXCVYhF0JzdCUQUwcaSG8nbBUQMQGTyNs'

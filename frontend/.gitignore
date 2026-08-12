@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Local TLS certs for HTTPS dev server (Web Push)
+certs/*
+!certs/README.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

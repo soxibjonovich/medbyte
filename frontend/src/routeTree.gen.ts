@@ -10,33 +10,325 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AiChatRouteImport } from './routes/ai-chat'
+import { Route as DiscountsRouteImport } from './routes/discounts'
+import { Route as LeaderboardRouteImport } from './routes/leaderboard'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as OtpVerifyRouteImport } from './routes/otp-verify'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as AdminAdminRouteImport } from './routes/admin/_admin'
+import { Route as BookingDoctorIdRouteImport } from './routes/booking.$doctorId'
+import { Route as FeedbackAppointmentIdRouteImport } from './routes/feedback.$appointmentId'
+import { Route as HospitalsHospitalIdRouteImport } from './routes/hospitals.$hospitalId'
+import { Route as PaymentAppointmentIdRouteImport } from './routes/payment.$appointmentId'
+import { Route as ProfileIndexRouteImport } from './routes/profile/index'
+import { Route as ProfileAppointmentsRouteImport } from './routes/profile/appointments'
+import { Route as AdminAdminIndexRouteImport } from './routes/admin/_admin/index'
+import { Route as AdminAdminAppointmentsRouteImport } from './routes/admin/_admin/appointments'
+import { Route as AdminAdminAuditLogRouteImport } from './routes/admin/_admin/audit-log'
+import { Route as AdminAdminDiscountsRouteImport } from './routes/admin/_admin/discounts'
+import { Route as AdminAdminDoctorsRouteImport } from './routes/admin/_admin/doctors'
+import { Route as AdminAdminFeedbackRouteImport } from './routes/admin/_admin/feedback'
+import { Route as AdminAdminHospitalsRouteImport } from './routes/admin/_admin/hospitals'
+import { Route as AdminAdminStatisticsRouteImport } from './routes/admin/_admin/statistics'
+import { Route as AdminAdminUsersRouteImport } from './routes/admin/_admin/users'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AiChatRoute = AiChatRouteImport.update({
+  id: '/ai-chat',
+  path: '/ai-chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscountsRoute = DiscountsRouteImport.update({
+  id: '/discounts',
+  path: '/discounts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeaderboardRoute = LeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OtpVerifyRoute = OtpVerifyRouteImport.update({
+  id: '/otp-verify',
+  path: '/otp-verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAdminRoute = AdminAdminRouteImport.update({
+  id: '/admin/_admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BookingDoctorIdRoute = BookingDoctorIdRouteImport.update({
+  id: '/booking/$doctorId',
+  path: '/booking/$doctorId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeedbackAppointmentIdRoute = FeedbackAppointmentIdRouteImport.update({
+  id: '/feedback/$appointmentId',
+  path: '/feedback/$appointmentId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HospitalsHospitalIdRoute = HospitalsHospitalIdRouteImport.update({
+  id: '/hospitals/$hospitalId',
+  path: '/hospitals/$hospitalId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentAppointmentIdRoute = PaymentAppointmentIdRouteImport.update({
+  id: '/payment/$appointmentId',
+  path: '/payment/$appointmentId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileIndexRoute = ProfileIndexRouteImport.update({
+  id: '/profile/',
+  path: '/profile/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileAppointmentsRoute = ProfileAppointmentsRouteImport.update({
+  id: '/profile/appointments',
+  path: '/profile/appointments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAdminIndexRoute = AdminAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminAppointmentsRoute = AdminAdminAppointmentsRouteImport.update({
+  id: '/appointments',
+  path: '/appointments',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminAuditLogRoute = AdminAdminAuditLogRouteImport.update({
+  id: '/audit-log',
+  path: '/audit-log',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminDiscountsRoute = AdminAdminDiscountsRouteImport.update({
+  id: '/discounts',
+  path: '/discounts',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminDoctorsRoute = AdminAdminDoctorsRouteImport.update({
+  id: '/doctors',
+  path: '/doctors',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminFeedbackRoute = AdminAdminFeedbackRouteImport.update({
+  id: '/feedback',
+  path: '/feedback',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminHospitalsRoute = AdminAdminHospitalsRouteImport.update({
+  id: '/hospitals',
+  path: '/hospitals',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminStatisticsRoute = AdminAdminStatisticsRouteImport.update({
+  id: '/statistics',
+  path: '/statistics',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
+const AdminAdminUsersRoute = AdminAdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminAdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ai-chat': typeof AiChatRoute
+  '/discounts': typeof DiscountsRoute
+  '/leaderboard': typeof LeaderboardRoute
+  '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
+  '/otp-verify': typeof OtpVerifyRoute
+  '/register': typeof RegisterRoute
+  '/admin': typeof AdminAdminRouteWithChildren
+  '/booking/$doctorId': typeof BookingDoctorIdRoute
+  '/feedback/$appointmentId': typeof FeedbackAppointmentIdRoute
+  '/hospitals/$hospitalId': typeof HospitalsHospitalIdRoute
+  '/payment/$appointmentId': typeof PaymentAppointmentIdRoute
+  '/profile/appointments': typeof ProfileAppointmentsRoute
+  '/profile/': typeof ProfileIndexRoute
+  '/admin/appointments': typeof AdminAdminAppointmentsRoute
+  '/admin/audit-log': typeof AdminAdminAuditLogRoute
+  '/admin/discounts': typeof AdminAdminDiscountsRoute
+  '/admin/doctors': typeof AdminAdminDoctorsRoute
+  '/admin/feedback': typeof AdminAdminFeedbackRoute
+  '/admin/hospitals': typeof AdminAdminHospitalsRoute
+  '/admin/statistics': typeof AdminAdminStatisticsRoute
+  '/admin/users': typeof AdminAdminUsersRoute
+  '/admin/': typeof AdminAdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai-chat': typeof AiChatRoute
+  '/discounts': typeof DiscountsRoute
+  '/leaderboard': typeof LeaderboardRoute
+  '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
+  '/otp-verify': typeof OtpVerifyRoute
+  '/register': typeof RegisterRoute
+  '/booking/$doctorId': typeof BookingDoctorIdRoute
+  '/feedback/$appointmentId': typeof FeedbackAppointmentIdRoute
+  '/hospitals/$hospitalId': typeof HospitalsHospitalIdRoute
+  '/payment/$appointmentId': typeof PaymentAppointmentIdRoute
+  '/profile/appointments': typeof ProfileAppointmentsRoute
+  '/profile': typeof ProfileIndexRoute
+  '/admin/appointments': typeof AdminAdminAppointmentsRoute
+  '/admin/audit-log': typeof AdminAdminAuditLogRoute
+  '/admin/discounts': typeof AdminAdminDiscountsRoute
+  '/admin/doctors': typeof AdminAdminDoctorsRoute
+  '/admin/feedback': typeof AdminAdminFeedbackRoute
+  '/admin/hospitals': typeof AdminAdminHospitalsRoute
+  '/admin/statistics': typeof AdminAdminStatisticsRoute
+  '/admin/users': typeof AdminAdminUsersRoute
+  '/admin': typeof AdminAdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ai-chat': typeof AiChatRoute
+  '/discounts': typeof DiscountsRoute
+  '/leaderboard': typeof LeaderboardRoute
+  '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
+  '/otp-verify': typeof OtpVerifyRoute
+  '/register': typeof RegisterRoute
+  '/admin/_admin': typeof AdminAdminRouteWithChildren
+  '/booking/$doctorId': typeof BookingDoctorIdRoute
+  '/feedback/$appointmentId': typeof FeedbackAppointmentIdRoute
+  '/hospitals/$hospitalId': typeof HospitalsHospitalIdRoute
+  '/payment/$appointmentId': typeof PaymentAppointmentIdRoute
+  '/profile/appointments': typeof ProfileAppointmentsRoute
+  '/profile/': typeof ProfileIndexRoute
+  '/admin/_admin/appointments': typeof AdminAdminAppointmentsRoute
+  '/admin/_admin/audit-log': typeof AdminAdminAuditLogRoute
+  '/admin/_admin/discounts': typeof AdminAdminDiscountsRoute
+  '/admin/_admin/doctors': typeof AdminAdminDoctorsRoute
+  '/admin/_admin/feedback': typeof AdminAdminFeedbackRoute
+  '/admin/_admin/hospitals': typeof AdminAdminHospitalsRoute
+  '/admin/_admin/statistics': typeof AdminAdminStatisticsRoute
+  '/admin/_admin/users': typeof AdminAdminUsersRoute
+  '/admin/_admin/': typeof AdminAdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/ai-chat'
+    | '/discounts'
+    | '/leaderboard'
+    | '/login'
+    | '/notifications'
+    | '/otp-verify'
+    | '/register'
+    | '/admin'
+    | '/booking/$doctorId'
+    | '/feedback/$appointmentId'
+    | '/hospitals/$hospitalId'
+    | '/payment/$appointmentId'
+    | '/profile/appointments'
+    | '/profile/'
+    | '/admin/appointments'
+    | '/admin/audit-log'
+    | '/admin/discounts'
+    | '/admin/doctors'
+    | '/admin/feedback'
+    | '/admin/hospitals'
+    | '/admin/statistics'
+    | '/admin/users'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/ai-chat'
+    | '/discounts'
+    | '/leaderboard'
+    | '/login'
+    | '/notifications'
+    | '/otp-verify'
+    | '/register'
+    | '/booking/$doctorId'
+    | '/feedback/$appointmentId'
+    | '/hospitals/$hospitalId'
+    | '/payment/$appointmentId'
+    | '/profile/appointments'
+    | '/profile'
+    | '/admin/appointments'
+    | '/admin/audit-log'
+    | '/admin/discounts'
+    | '/admin/doctors'
+    | '/admin/feedback'
+    | '/admin/hospitals'
+    | '/admin/statistics'
+    | '/admin/users'
+    | '/admin'
+  id:
+    | '__root__'
+    | '/'
+    | '/ai-chat'
+    | '/discounts'
+    | '/leaderboard'
+    | '/login'
+    | '/notifications'
+    | '/otp-verify'
+    | '/register'
+    | '/admin/_admin'
+    | '/booking/$doctorId'
+    | '/feedback/$appointmentId'
+    | '/hospitals/$hospitalId'
+    | '/payment/$appointmentId'
+    | '/profile/appointments'
+    | '/profile/'
+    | '/admin/_admin/appointments'
+    | '/admin/_admin/audit-log'
+    | '/admin/_admin/discounts'
+    | '/admin/_admin/doctors'
+    | '/admin/_admin/feedback'
+    | '/admin/_admin/hospitals'
+    | '/admin/_admin/statistics'
+    | '/admin/_admin/users'
+    | '/admin/_admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AiChatRoute: typeof AiChatRoute
+  DiscountsRoute: typeof DiscountsRoute
+  LeaderboardRoute: typeof LeaderboardRoute
+  LoginRoute: typeof LoginRoute
+  NotificationsRoute: typeof NotificationsRoute
+  OtpVerifyRoute: typeof OtpVerifyRoute
+  RegisterRoute: typeof RegisterRoute
+  AdminAdminRoute: typeof AdminAdminRouteWithChildren
+  BookingDoctorIdRoute: typeof BookingDoctorIdRoute
+  FeedbackAppointmentIdRoute: typeof FeedbackAppointmentIdRoute
+  HospitalsHospitalIdRoute: typeof HospitalsHospitalIdRoute
+  PaymentAppointmentIdRoute: typeof PaymentAppointmentIdRoute
+  ProfileAppointmentsRoute: typeof ProfileAppointmentsRoute
+  ProfileIndexRoute: typeof ProfileIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +340,214 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ai-chat': {
+      id: '/ai-chat'
+      path: '/ai-chat'
+      fullPath: '/ai-chat'
+      preLoaderRoute: typeof AiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discounts': {
+      id: '/discounts'
+      path: '/discounts'
+      fullPath: '/discounts'
+      preLoaderRoute: typeof DiscountsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leaderboard': {
+      id: '/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof LeaderboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/otp-verify': {
+      id: '/otp-verify'
+      path: '/otp-verify'
+      fullPath: '/otp-verify'
+      preLoaderRoute: typeof OtpVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/_admin': {
+      id: '/admin/_admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/booking/$doctorId': {
+      id: '/booking/$doctorId'
+      path: '/booking/$doctorId'
+      fullPath: '/booking/$doctorId'
+      preLoaderRoute: typeof BookingDoctorIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/feedback/$appointmentId': {
+      id: '/feedback/$appointmentId'
+      path: '/feedback/$appointmentId'
+      fullPath: '/feedback/$appointmentId'
+      preLoaderRoute: typeof FeedbackAppointmentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hospitals/$hospitalId': {
+      id: '/hospitals/$hospitalId'
+      path: '/hospitals/$hospitalId'
+      fullPath: '/hospitals/$hospitalId'
+      preLoaderRoute: typeof HospitalsHospitalIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payment/$appointmentId': {
+      id: '/payment/$appointmentId'
+      path: '/payment/$appointmentId'
+      fullPath: '/payment/$appointmentId'
+      preLoaderRoute: typeof PaymentAppointmentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile/': {
+      id: '/profile/'
+      path: '/profile'
+      fullPath: '/profile/'
+      preLoaderRoute: typeof ProfileIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile/appointments': {
+      id: '/profile/appointments'
+      path: '/profile/appointments'
+      fullPath: '/profile/appointments'
+      preLoaderRoute: typeof ProfileAppointmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/_admin/': {
+      id: '/admin/_admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminAdminIndexRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/admin/_admin/appointments': {
+      id: '/admin/_admin/appointments'
+      path: '/appointments'
+      fullPath: '/admin/appointments'
+      preLoaderRoute: typeof AdminAdminAppointmentsRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/admin/_admin/audit-log': {
+      id: '/admin/_admin/audit-log'
+      path: '/audit-log'
+      fullPath: '/admin/audit-log'
+      preLoaderRoute: typeof AdminAdminAuditLogRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/admin/_admin/discounts': {
+      id: '/admin/_admin/discounts'
+      path: '/discounts'
+      fullPath: '/admin/discounts'
+      preLoaderRoute: typeof AdminAdminDiscountsRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/admin/_admin/doctors': {
+      id: '/admin/_admin/doctors'
+      path: '/doctors'
+      fullPath: '/admin/doctors'
+      preLoaderRoute: typeof AdminAdminDoctorsRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/admin/_admin/feedback': {
+      id: '/admin/_admin/feedback'
+      path: '/feedback'
+      fullPath: '/admin/feedback'
+      preLoaderRoute: typeof AdminAdminFeedbackRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/admin/_admin/hospitals': {
+      id: '/admin/_admin/hospitals'
+      path: '/hospitals'
+      fullPath: '/admin/hospitals'
+      preLoaderRoute: typeof AdminAdminHospitalsRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/admin/_admin/statistics': {
+      id: '/admin/_admin/statistics'
+      path: '/statistics'
+      fullPath: '/admin/statistics'
+      preLoaderRoute: typeof AdminAdminStatisticsRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
+    '/admin/_admin/users': {
+      id: '/admin/_admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminAdminUsersRouteImport
+      parentRoute: typeof AdminAdminRoute
+    }
   }
 }
 
+interface AdminAdminRouteChildren {
+  AdminAdminAppointmentsRoute: typeof AdminAdminAppointmentsRoute
+  AdminAdminAuditLogRoute: typeof AdminAdminAuditLogRoute
+  AdminAdminDiscountsRoute: typeof AdminAdminDiscountsRoute
+  AdminAdminDoctorsRoute: typeof AdminAdminDoctorsRoute
+  AdminAdminFeedbackRoute: typeof AdminAdminFeedbackRoute
+  AdminAdminHospitalsRoute: typeof AdminAdminHospitalsRoute
+  AdminAdminStatisticsRoute: typeof AdminAdminStatisticsRoute
+  AdminAdminUsersRoute: typeof AdminAdminUsersRoute
+  AdminAdminIndexRoute: typeof AdminAdminIndexRoute
+}
+
+const AdminAdminRouteChildren: AdminAdminRouteChildren = {
+  AdminAdminAppointmentsRoute: AdminAdminAppointmentsRoute,
+  AdminAdminAuditLogRoute: AdminAdminAuditLogRoute,
+  AdminAdminDiscountsRoute: AdminAdminDiscountsRoute,
+  AdminAdminDoctorsRoute: AdminAdminDoctorsRoute,
+  AdminAdminFeedbackRoute: AdminAdminFeedbackRoute,
+  AdminAdminHospitalsRoute: AdminAdminHospitalsRoute,
+  AdminAdminStatisticsRoute: AdminAdminStatisticsRoute,
+  AdminAdminUsersRoute: AdminAdminUsersRoute,
+  AdminAdminIndexRoute: AdminAdminIndexRoute,
+}
+
+const AdminAdminRouteWithChildren = AdminAdminRoute._addFileChildren(
+  AdminAdminRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AiChatRoute: AiChatRoute,
+  DiscountsRoute: DiscountsRoute,
+  LeaderboardRoute: LeaderboardRoute,
+  LoginRoute: LoginRoute,
+  NotificationsRoute: NotificationsRoute,
+  OtpVerifyRoute: OtpVerifyRoute,
+  RegisterRoute: RegisterRoute,
+  AdminAdminRoute: AdminAdminRouteWithChildren,
+  BookingDoctorIdRoute: BookingDoctorIdRoute,
+  FeedbackAppointmentIdRoute: FeedbackAppointmentIdRoute,
+  HospitalsHospitalIdRoute: HospitalsHospitalIdRoute,
+  PaymentAppointmentIdRoute: PaymentAppointmentIdRoute,
+  ProfileAppointmentsRoute: ProfileAppointmentsRoute,
+  ProfileIndexRoute: ProfileIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
