@@ -371,6 +371,22 @@ async def create_queue_entry(payload: CreateQueueEntry, actor: dict = Depends(re
     return entry
 
 
+@queue_router.post("/{appointment_id}/test-feedback-push", response_model=dict)
+async def test_feedback_push(appointment_id: int, actor: dict = Depends(require_staff)):
+    entry = await database_client.get_or_none(f"/appointments/{appointment_id}")
+    if entry is None:
+        raise HTTPException(status_code=404, detail="appointment not found")
+    await rabbitmq_client.publish_feedback_request(
+        appointment_id=appointment_id,
+        user_id=entry["user_id"],
+        hospital_id=entry.get("hospital_id"),
+        fire_at=datetime.now(timezone.utc).isoformat(),
+        delay_ms=1000,
+    )
+    await _log(actor, "test_push", "appointment", appointment_id)
+    return {"scheduled": True, "appointment_id": appointment_id, "delay_ms": 1000}
+
+
 # --- questions -----------------------------------------------------------
 
 

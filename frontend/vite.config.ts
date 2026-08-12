@@ -13,6 +13,7 @@ const SERVICES = {
   database: process.env.DATABASE_API_URL || 'http://localhost:8005',
   ai: process.env.AI_API_URL || 'http://localhost:8011',
   notifications: process.env.NOTIFICATIONS_API_URL || 'http://localhost:8009',
+  payment: process.env.PAYMENT_API_URL || 'http://localhost:8010',
 }
 
 // Self-signed TLS certs for LAN/mobile testing (needed for Web Push).
@@ -80,6 +81,8 @@ export default defineConfig({
       '/api/ai': { target: SERVICES.ai, changeOrigin: true },
       // notifications service (port 8009) - in-app + web push
       '/api/notifications': { target: SERVICES.notifications, changeOrigin: true },
+      // payment service (port 8010) - Stripe checkout
+      '/api/payments': { target: SERVICES.payment, changeOrigin: true },
     },
   },
 })

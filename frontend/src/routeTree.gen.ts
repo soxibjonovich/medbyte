@@ -21,6 +21,7 @@ import { Route as BookingDoctorIdRouteImport } from './routes/booking.$doctorId'
 import { Route as FeedbackAppointmentIdRouteImport } from './routes/feedback.$appointmentId'
 import { Route as HospitalsHospitalIdRouteImport } from './routes/hospitals.$hospitalId'
 import { Route as PaymentAppointmentIdRouteImport } from './routes/payment.$appointmentId'
+import { Route as PaymentSuccessRouteImport } from './routes/payment.success'
 import { Route as ProfileIndexRouteImport } from './routes/profile/index'
 import { Route as ProfileAppointmentsRouteImport } from './routes/profile/appointments'
 import { Route as AdminAdminIndexRouteImport } from './routes/admin/_admin/index'
@@ -92,6 +93,11 @@ const HospitalsHospitalIdRoute = HospitalsHospitalIdRouteImport.update({
 const PaymentAppointmentIdRoute = PaymentAppointmentIdRouteImport.update({
   id: '/payment/$appointmentId',
   path: '/payment/$appointmentId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
+  id: '/payment/success',
+  path: '/payment/success',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileIndexRoute = ProfileIndexRouteImport.update({
@@ -168,6 +174,7 @@ export interface FileRoutesByFullPath {
   '/feedback/$appointmentId': typeof FeedbackAppointmentIdRoute
   '/hospitals/$hospitalId': typeof HospitalsHospitalIdRoute
   '/payment/$appointmentId': typeof PaymentAppointmentIdRoute
+  '/payment/success': typeof PaymentSuccessRoute
   '/profile/appointments': typeof ProfileAppointmentsRoute
   '/profile/': typeof ProfileIndexRoute
   '/admin/appointments': typeof AdminAdminAppointmentsRoute
@@ -193,6 +200,7 @@ export interface FileRoutesByTo {
   '/feedback/$appointmentId': typeof FeedbackAppointmentIdRoute
   '/hospitals/$hospitalId': typeof HospitalsHospitalIdRoute
   '/payment/$appointmentId': typeof PaymentAppointmentIdRoute
+  '/payment/success': typeof PaymentSuccessRoute
   '/profile/appointments': typeof ProfileAppointmentsRoute
   '/profile': typeof ProfileIndexRoute
   '/admin/appointments': typeof AdminAdminAppointmentsRoute
@@ -220,6 +228,7 @@ export interface FileRoutesById {
   '/feedback/$appointmentId': typeof FeedbackAppointmentIdRoute
   '/hospitals/$hospitalId': typeof HospitalsHospitalIdRoute
   '/payment/$appointmentId': typeof PaymentAppointmentIdRoute
+  '/payment/success': typeof PaymentSuccessRoute
   '/profile/appointments': typeof ProfileAppointmentsRoute
   '/profile/': typeof ProfileIndexRoute
   '/admin/_admin/appointments': typeof AdminAdminAppointmentsRoute
@@ -248,6 +257,7 @@ export interface FileRouteTypes {
     | '/feedback/$appointmentId'
     | '/hospitals/$hospitalId'
     | '/payment/$appointmentId'
+    | '/payment/success'
     | '/profile/appointments'
     | '/profile/'
     | '/admin/appointments'
@@ -273,6 +283,7 @@ export interface FileRouteTypes {
     | '/feedback/$appointmentId'
     | '/hospitals/$hospitalId'
     | '/payment/$appointmentId'
+    | '/payment/success'
     | '/profile/appointments'
     | '/profile'
     | '/admin/appointments'
@@ -299,6 +310,7 @@ export interface FileRouteTypes {
     | '/feedback/$appointmentId'
     | '/hospitals/$hospitalId'
     | '/payment/$appointmentId'
+    | '/payment/success'
     | '/profile/appointments'
     | '/profile/'
     | '/admin/_admin/appointments'
@@ -326,6 +338,7 @@ export interface RootRouteChildren {
   FeedbackAppointmentIdRoute: typeof FeedbackAppointmentIdRoute
   HospitalsHospitalIdRoute: typeof HospitalsHospitalIdRoute
   PaymentAppointmentIdRoute: typeof PaymentAppointmentIdRoute
+  PaymentSuccessRoute: typeof PaymentSuccessRoute
   ProfileAppointmentsRoute: typeof ProfileAppointmentsRoute
   ProfileIndexRoute: typeof ProfileIndexRoute
 }
@@ -414,6 +427,13 @@ declare module '@tanstack/react-router' {
       path: '/payment/$appointmentId'
       fullPath: '/payment/$appointmentId'
       preLoaderRoute: typeof PaymentAppointmentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payment/success': {
+      id: '/payment/success'
+      path: '/payment/success'
+      fullPath: '/payment/success'
+      preLoaderRoute: typeof PaymentSuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile/': {
@@ -546,6 +566,7 @@ const rootRouteChildren: RootRouteChildren = {
   FeedbackAppointmentIdRoute: FeedbackAppointmentIdRoute,
   HospitalsHospitalIdRoute: HospitalsHospitalIdRoute,
   PaymentAppointmentIdRoute: PaymentAppointmentIdRoute,
+  PaymentSuccessRoute: PaymentSuccessRoute,
   ProfileAppointmentsRoute: ProfileAppointmentsRoute,
   ProfileIndexRoute: ProfileIndexRoute,
 }

@@ -5,6 +5,7 @@ import type {
   AppointmentStatus,
   AuditLogEntry,
   CategoryVisitStat,
+  CheckoutResponse,
   Discount,
   DoctorSummary,
   Feedback,
@@ -15,6 +16,8 @@ import type {
   HospitalLeaderboardEntry,
   MedicalCategory,
   Notification,
+  PaymentDetail,
+  PaymentProvider,
   QueueEntry,
   SortOption,
   StatsOverview,
@@ -270,6 +273,12 @@ export const queueApi = {
     apiFetch<QueueEntry[]>(API.queue, `${buildQuery(params)}`),
   create: (body: QueueCreateInput) =>
     apiFetch<QueueEntry>(API.queue, '', { method: 'POST', body: JSON.stringify(body) }),
+  testFeedbackPush: (appointmentId: number) =>
+    apiFetch<{ scheduled: boolean; appointment_id: number; delay_ms: number }>(
+      API.queue,
+      `/${appointmentId}/test-feedback-push`,
+      { method: 'POST' },
+    ),
   /** Builds the `wss://…/api/queue/ws?token=…` URL for the live queue websocket. */
   wsUrl: () => {
     const token = useAuthStore.getState().token
@@ -307,6 +316,25 @@ export const notificationsApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  testSend: () =>
+    apiFetch<{ sent: number; failed: number }>(API.notifications, '/test-send', {
+      method: 'POST',
+    }),
+}
+
+/* ------------------------------------------------------------------ */
+/* Payment service (Stripe checkout)                                   */
+/* ------------------------------------------------------------------ */
+
+export const paymentApi = {
+  checkout: (body: { appointment_id: number; provider: PaymentProvider }) =>
+    apiFetch<CheckoutResponse>(API.payment, '/checkout', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  get: (id: number) => apiFetch<PaymentDetail>(API.payment, `/${id}`),
+  getBySession: (sessionId: string) =>
+    apiFetch<PaymentDetail>(API.payment, `/by-session/${sessionId}`),
 }
 
 /* ------------------------------------------------------------------ */

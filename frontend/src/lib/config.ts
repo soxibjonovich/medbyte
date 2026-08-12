@@ -14,6 +14,7 @@ export const API = {
   ai: (env.VITE_AI_API_URL as string) ?? '/api/ai',
   notifications: (env.VITE_NOTIFICATIONS_API_URL as string) ?? '/api/notifications',
   queue: (env.VITE_QUEUE_API_URL as string) ?? '/api/queue',
+  payment: (env.VITE_PAYMENT_API_URL as string) ?? '/api/payments',
 }
 
 /**
@@ -34,4 +35,4 @@ export function apiWsUrl(base: string, path: string): string {
  */
 export const VAPID_PUBLIC_KEY =
   (env.VITE_VAPID_PUBLIC_KEY as string) ??
-  'BPIqdANAE79Bq1fmjqn1JopOv_bJRPabGbz6jEduTbHj5dsGs8Gd1aBXCVYhF0JzdCUQUwcaSG8nbBUQMQGTyNs'
+  'BPyC2gDrzrpvZPFSiXI_BAi6cGCZ8Sy2mn1OTi0E5vefB-xecuwnkvax0D3sW_nCc1r6_RdugzjJ41yPurqzU5c'

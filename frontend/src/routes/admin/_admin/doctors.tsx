@@ -3,11 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { requireAdmin } from '@/lib/guards'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Star } from 'lucide-react'
+import { Plus, Pencil, Trash2, Star, Check, ChevronDown, Loader2, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Dialog,
   DialogContent,
@@ -38,7 +39,8 @@ import { PageLoader } from '@/components/shared/loader'
 import { EmptyState } from '@/components/shared/empty-state'
 import { adminApi } from '@/lib/api'
 import { useCategories } from '@/hooks/useCategories'
-import type { DoctorSummary } from '@/lib/types'
+import { cn } from '@/lib/utils'
+import type { DoctorSummary, MedicalCategory } from '@/lib/types'
 
 export const Route = createFileRoute('/admin/_admin/doctors')({
   beforeLoad: () => requireAdmin(),
@@ -234,18 +236,11 @@ function AdminDoctorsPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Category</Label>
-              <select
+              <CategoryCombobox
+                categories={categories}
                 value={form.medical_category_id}
-                onChange={(e) => setForm({ ...form, medical_category_id: e.target.value })}
-                className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="">Select category…</option>
-                {(categories ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(id) => setForm({ ...form, medical_category_id: id })}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Full name</Label>
@@ -312,4 +307,92 @@ function toPayload(form: DoctorForm) {
     full_name: form.full_name.trim(),
     experience_years: Math.max(0, Number(form.experience_years) || 0),
   }
+}
+
+function CategoryCombobox({
+  categories,
+  value,
+  onChange,
+}: {
+  categories: MedicalCategory[] | undefined
+  value: string
+  onChange: (value: string) => void
+}) {
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+
+  const list = categories ?? []
+  const selected = list.find((c) => c.id === Number(value))
+  const trimmed = query.trim().toLowerCase()
+  const filtered = trimmed ? list.filter((c) => c.name.toLowerCase().includes(trimmed)) : list
+  const exactMatch = list.some((c) => c.name.toLowerCase() === trimmed)
+  const canCreate = trimmed.length > 0 && !exactMatch
+
+  const createCategory = useMutation({
+    mutationFn: (name: string) => adminApi.createCategory({ name }),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      toast.success(`Category "${created.name}" created`)
+      onChange(String(created.id))
+      setQuery('')
+      setOpen(false)
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Create failed'),
+  })
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger render={<Button type="button" variant="outline" className="h-9 w-full justify-between font-normal" />}>
+        <span className={cn(!selected && 'text-muted-foreground')}>
+          {selected ? selected.name : 'Select category…'}
+        </span>
+        <ChevronDown className="size-4 text-muted-foreground" />
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-1.5" align="start">
+        <div className="relative">
+          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search categories…"
+            className="h-8 pl-8"
+          />
+        </div>
+        <div className="scroll-my-1 max-h-56 overflow-y-auto py-1">
+          {filtered.length === 0 ? (
+            <p className="px-2 py-1.5 text-sm text-muted-foreground">No matching categories</p>
+          ) : (
+            filtered.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  onChange(String(c.id))
+                  setQuery('')
+                  setOpen(false)
+                }}
+                className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent"
+              >
+                {c.name}
+                {c.id === Number(value) && <Check className="size-4 text-primary" />}
+              </button>
+            ))
+          )}
+        </div>
+        {canCreate && (
+          <button
+            type="button"
+            onClick={() => createCategory.mutate(query.trim())}
+            disabled={createCategory.isPending}
+            className="mt-1 flex w-full items-center gap-2 rounded-md border-t px-2 py-2 text-left text-sm font-medium text-primary outline-none hover:bg-accent disabled:opacity-50"
+          >
+            {createCategory.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            Create “{query.trim()}”
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
 }

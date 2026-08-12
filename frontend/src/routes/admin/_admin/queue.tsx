@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { CalendarDays, Plus, Radio, User as UserIcon } from 'lucide-react'
+import { BellRing, CalendarDays, Plus, Radio, User as UserIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -127,6 +127,12 @@ function AdminQueuePage() {
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Create failed'),
   })
 
+  const testPushMutation = useMutation({
+    mutationFn: (appointmentId: number) => queueApi.testFeedbackPush(appointmentId),
+    onSuccess: () => toast.success('Feedback reminder push scheduled (~1s)'),
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Push failed'),
+  })
+
   const openCreate = () => {
     setForm(emptyForm())
     setDialogOpen(true)
@@ -183,6 +189,7 @@ function AdminQueuePage() {
                 <TableHead>Hospital</TableHead>
                 <TableHead>Scheduled</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Test</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -208,6 +215,20 @@ function AdminQueuePage() {
                   </TableCell>
                   <TableCell>
                     <Badge className={STATUS_STYLES[entry.status]}>{entry.status}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Send feedback-reminder push now (test)"
+                      disabled={testPushMutation.isPending}
+                      onClick={() => testPushMutation.mutate(entry.id)}
+                    >
+                      <BellRing className="size-4" />
+                      {testPushMutation.isPending && testPushMutation.variables === entry.id
+                        ? 'Sending…'
+                        : 'Reminder'}
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

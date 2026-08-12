@@ -242,6 +242,18 @@ async def update_appointment_endpoint(
     )
 
 
+@app.post(
+    "/appointments/{appointment_id}/assign-queue", response_model=AppointmentResponse
+)
+async def assign_queue_number_endpoint(
+    appointment_id: int, session: AsyncSession = Depends(get_session)
+):
+    appointment = await crud.get_appointment(session, appointment_id)
+    if appointment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="appointment not found")
+    return await crud.assign_queue_number(session, appointment)
+
+
 @app.delete("/appointments/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_appointment_endpoint(appointment_id: int, session: AsyncSession = Depends(get_session)):
     appointment = await crud.get_appointment(session, appointment_id)

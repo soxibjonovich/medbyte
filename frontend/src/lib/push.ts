@@ -10,6 +10,19 @@ function urlBase64ToUint8Array(base64Url: string): Uint8Array<ArrayBuffer> {
   return bytes
 }
 
+function bytesMatch(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false
+  return a.every((value, i) => value === b[i])
+}
+
+/** The VAPID key the backend signs with — must match the one the browser subscribed with. */
+function applicationServerKeyMatches(subscription: PushSubscription): boolean {
+  const current = subscription.options?.applicationServerKey
+  if (!current) return true // some browsers omit it — don't force a resubscribe blindly
+  const bytes = current instanceof ArrayBuffer ? new Uint8Array(current) : new Uint8Array(current)
+  return bytesMatch(bytes, urlBase64ToUint8Array(VAPID_PUBLIC_KEY))
+}
+
 function bufferToBase64Url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)
   let binary = ''
@@ -42,6 +55,10 @@ export async function getOrCreatePushSubscription(): Promise<PushSubscription | 
     const registration = await navigator.serviceWorker.register('/sw.js')
     await navigator.serviceWorker.ready
     let subscription = await registration.pushManager.getSubscription()
+    if (subscription && !applicationServerKeyMatches(subscription)) {
+      await subscription.unsubscribe().catch(() => {})
+      subscription = null
+    }
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,

@@ -83,6 +83,28 @@ export interface Notification {
   created_at: string
 }
 
+export type PaymentProvider = 'stripe' | 'payme' | 'uzum'
+
+export interface PaymentDetail {
+  id: number
+  user_id: number
+  appointment_id: number
+  provider: PaymentProvider
+  external_id: string | null
+  amount: number
+  currency: string
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CheckoutResponse {
+  payment_id: number
+  provider: PaymentProvider
+  checkout_url: string | null
+  token: string | null
+}
+
 export interface Discount {
   id: number
   user_id: number

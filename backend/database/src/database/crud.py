@@ -175,6 +175,29 @@ async def delete_appointment(session: AsyncSession, appointment: Appointment) ->
     await session.commit()
 
 
+async def assign_queue_number(
+    session: AsyncSession, appointment: Appointment
+) -> Appointment:
+    """Assign the next sequential queue number for the hospital on the appointment day.
+
+    Idempotent — returns unchanged appointment if a queue number already exists.
+    """
+    if appointment.queue_number is not None:
+        return appointment
+    result = await session.execute(
+        select(func.max(Appointment.queue_number)).where(
+            Appointment.hospital_id == appointment.hospital_id,
+            func.date(Appointment.scheduled_at) == func.date(appointment.scheduled_at),
+            Appointment.queue_number.isnot(None),
+        )
+    )
+    current_max = result.scalar_one()
+    appointment.queue_number = (current_max or 0) + 1
+    await session.commit()
+    await session.refresh(appointment)
+    return appointment
+
+
 async def list_notifications(
     session: AsyncSession, user_id: int | None = None, limit: int = 50, offset: int = 0
 ) -> list[Notification]:

@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 import stripe
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 
 from . import database_client, stripe_client
 from .deps import get_current_user
@@ -10,6 +11,14 @@ from .schemas import CheckoutRequest, CheckoutResponse, PaymentDetail
 
 DEMO_AMOUNT = int(os.environ.get("PAYMENT_DEMO_AMOUNT", "2000"))
 DEMO_CURRENCY = os.environ.get("PAYMENT_DEMO_CURRENCY", "usd")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+
+
+async def _finalize_paid_payment(payment_id: int) -> None:
+    """Mark a payment paid and assign the appointment's queue number (idempotent)."""
+    payment = await database_client.get(f"/payments/{payment_id}")
+    if payment.get("status") == "paid":
+        await database_client.post(f"/appointments/{payment['appointment_id']}/assign-queue")
 
 
 @asynccontextmanager
@@ -83,6 +92,7 @@ async def stripe_webhook(request: Request):
             await database_client.patch(
                 f"/payments/{payment_id}", json={"external_id": session["id"], "status": "paid"}
             )
+            await _finalize_paid_payment(payment_id)
         elif event_type in ("checkout.session.expired", "checkout.session.async_payment_failed"):
             await database_client.patch(f"/payments/{payment_id}", json={"status": "failed"})
 
@@ -95,6 +105,29 @@ async def payme_webhook():
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail="Payme integration not implemented in this demo",
     )
+
+
+@router.get("/success", include_in_schema=False)
+async def payment_success(session_id: str = ""):
+    payment = await database_client.get_or_none(f"/payments/by-external/{session_id}")
+    if payment is not None and payment.get("status") == "paid":
+        await _finalize_paid_payment(payment["id"])
+    return RedirectResponse(f"{FRONTEND_URL}/payment/success?session_id={session_id}")
+
+
+@router.get("/cancel", include_in_schema=False)
+async def payment_cancel():
+    return RedirectResponse(f"{FRONTEND_URL}/payment/cancelled")
+
+
+@router.get("/by-session/{session_id}", response_model=PaymentDetail)
+async def get_payment_by_session(session_id: str, current_user: dict = Depends(get_current_user)):
+    payment = await database_client.get_or_none(f"/payments/by-external/{session_id}")
+    if payment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="payment not found")
+    if payment["user_id"] != current_user["id"] and current_user["role"] != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not your payment")
+    return payment
 
 
 @router.post("/webhook/uzum", include_in_schema=False)
