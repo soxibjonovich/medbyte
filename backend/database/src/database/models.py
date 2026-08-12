@@ -122,19 +122,6 @@ class Notification(Base):
     )
 
 
-class PushSubscription(Base):
-    __tablename__ = "push_subscriptions"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    endpoint: Mapped[str] = mapped_column(String(1000), unique=True)
-    p256dh: Mapped[str] = mapped_column(String(255))
-    auth_key: Mapped[str] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
-    )
-
-
 class PaymentProvider(str, enum.Enum):
     stripe = "stripe"
     payme = "payme"
@@ -213,6 +200,10 @@ class Feedback(Base):
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("medical_categories.id"), nullable=True
     )
+    # average of the five doctor-characteristic ratings in `answers` (sum / 5)
+    rating: Mapped[float | None] = mapped_column(Float, nullable=True)
+    tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    text_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     answers: Mapped[list[dict]] = mapped_column(JSONB, default=list)
     audio_file: Mapped[str | None] = mapped_column(String(500), nullable=True)
     transcript: Mapped[str | None] = mapped_column(Text, nullable=True)

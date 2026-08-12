@@ -29,6 +29,9 @@ class Feedback(BaseModel):
     hospital_id: int | None
     doctor_id: int | None
     category_id: int | None
+    rating: float | None = Field(default=None, ge=1, le=5)
+    tags: list[str] = Field(default_factory=list)
+    text_comment: str | None = None
     answers: list[FeedbackAnswer]
     audio_file: str | None
     transcript: str | None

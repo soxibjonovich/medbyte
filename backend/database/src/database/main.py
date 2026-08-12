@@ -18,7 +18,6 @@ from .schemas import (
     CreateHospitalRequest,
     CreateMedicalCategoryRequest,
     CreateNotificationRequest,
-    CreatePushSubscriptionRequest,
     CreateQuestionRequest,
     CreateUserRequest,
     DiscountResponse,
@@ -32,7 +31,6 @@ from .schemas import (
     CreatePaymentRequest,
     NotificationResponse,
     PaymentResponse,
-    PushSubscriptionResponse,
     QuestionResponse,
     StatsOverview,
     UpdateAppointmentRequest,
@@ -313,52 +311,6 @@ async def delete_notification_endpoint(
     if notification is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="notification not found")
     await crud.delete_notification(session, notification)
-
-
-@app.post(
-    "/push-subscriptions",
-    response_model=PushSubscriptionResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_push_subscription_endpoint(
-    payload: CreatePushSubscriptionRequest, session: AsyncSession = Depends(get_session)
-):
-    if await crud.get_user(session, payload.user_id) is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
-    existing = await crud.get_push_subscription_by_endpoint(session, payload.endpoint)
-    if existing is not None:
-        return existing
-    return await crud.create_push_subscription(
-        session,
-        user_id=payload.user_id,
-        endpoint=payload.endpoint,
-        p256dh=payload.p256dh,
-        auth_key=payload.auth_key,
-    )
-
-
-@app.get("/push-subscriptions", response_model=list[PushSubscriptionResponse])
-async def list_push_subscriptions_endpoint(
-    user_id: int | None = Query(default=None),
-    limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),
-    session: AsyncSession = Depends(get_session),
-):
-    """Internal: notifications service fetches a user's Web Push subscriptions here."""
-    return await crud.list_push_subscriptions(
-        session, user_id=user_id, limit=limit, offset=offset
-    )
-
-
-@app.delete("/push-subscriptions/{subscription_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_push_subscription_endpoint(
-    subscription_id: int, session: AsyncSession = Depends(get_session)
-):
-    """Internal: notifications service removes subscriptions whose endpoints reject pushes."""
-    subscription = await crud.get_push_subscription_by_id(session, subscription_id)
-    if subscription is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="subscription not found")
-    await crud.delete_push_subscription(session, subscription)
 
 
 @app.post("/payments", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
@@ -772,6 +724,9 @@ async def create_feedback_endpoint(
         hospital_id=payload.hospital_id,
         doctor_id=payload.doctor_id,
         category_id=payload.category_id,
+        rating=payload.rating,
+        tags=payload.tags,
+        text_comment=payload.text_comment,
         answers=[answer.model_dump() for answer in payload.answers],
         audio_file=payload.audio_file,
     )

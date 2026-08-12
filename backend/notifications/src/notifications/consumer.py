@@ -4,7 +4,7 @@ import os
 
 import aio_pika
 
-from . import database_client, push
+from . import database_client, emailer
 
 RABBITMQ_URL = os.environ.get("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 DELAYED_EXCHANGE = "notifications.delayed"
@@ -23,20 +23,21 @@ async def _handle_message(message: aio_pika.abc.AbstractIncomingMessage) -> None
             appointment_id = body["appointment_id"]
             user_id = body["user_id"]
 
-            subs = await database_client.get(f"/push-subscriptions?user_id={user_id}")
-            payload = {
-                "title": "Share your feedback",
-                "body": "Tell us about your recent visit",
-                "data": {
-                    "url": f"/feedback/{appointment_id}",
-                    "appointment_id": appointment_id,
-                },
-            }
-            for sub in subs:
-                try:
-                    await push.send_push(sub, payload)
-                except push.StaleSubscription as exc:
-                    await database_client.delete(f"/push-subscriptions/{exc.subscription_id}")
+            user = await database_client.get_or_none(f"/users/{user_id}")
+            email = (user or {}).get("email")
+            if not email:
+                logger.info("user %s has no email; skipping feedback reminder", user_id)
+                return
+
+            await emailer.send_email(
+                to=email,
+                subject="Share your feedback",
+                body=(
+                    "Tell us about your recent visit.\n\n"
+                    f"Rate your experience here: /feedback/{appointment_id}\n\n"
+                    "Thank you for helping other patients choose the right doctor."
+                ),
+            )
         except Exception:
             logger.warning("failed to handle message", exc_info=True)
 

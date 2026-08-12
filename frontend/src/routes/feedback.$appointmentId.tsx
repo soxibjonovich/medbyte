@@ -14,6 +14,11 @@ import {
   CheckCircle2,
   ArrowLeft,
   Star,
+  ShieldCheck,
+  MessagesSquare,
+  AlarmClock,
+  HeartHandshake,
+  Stethoscope,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -50,16 +55,63 @@ const LIKE_TAGS: LikeTag[] = [
   { label: 'On-time appointment', icon: Clock },
 ]
 
+interface Characteristic {
+  key: 'professionalism' | 'communication' | 'punctuality' | 'attentiveness' | 'effectiveness'
+  label: string
+  description: string
+  icon: LucideIcon
+}
+
+const CHARACTERISTICS: Characteristic[] = [
+  {
+    key: 'professionalism',
+    label: 'Professionalism',
+    description: 'Polite, ethical and well-prepared',
+    icon: ShieldCheck,
+  },
+  {
+    key: 'communication',
+    label: 'Communication',
+    description: 'Clear explanations, easy to understand',
+    icon: MessagesSquare,
+  },
+  {
+    key: 'punctuality',
+    label: 'Punctuality',
+    description: 'On time — minimal waiting',
+    icon: AlarmClock,
+  },
+  {
+    key: 'attentiveness',
+    label: 'Attentiveness',
+    description: 'Listened carefully to your concerns',
+    icon: HeartHandshake,
+  },
+  {
+    key: 'effectiveness',
+    label: 'Effectiveness',
+    description: 'Diagnosis and advice were helpful',
+    icon: Stethoscope,
+  },
+]
+
 function FeedbackPage() {
   const { appointmentId } = Route.useParams()
   const id = Number(appointmentId)
 
-  const [rating, setRating] = useState(0)
+  const [ratings, setRatings] = useState<Partial<Record<Characteristic['key'], number>>>({})
   const [tags, setTags] = useState<string[]>([])
   const [comment, setComment] = useState('')
   const [audio, setAudio] = useState<File | null>(null)
   const [consent, setConsent] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+
+  const ratedValues = CHARACTERISTICS.map((c) => ratings[c.key])
+  const allRated = ratedValues.every((value) => value != null)
+  const average =
+    allRated && ratedValues.length > 0
+      ? ratedValues.reduce<number>((sum, value) => sum + (value ?? 0), 0) / CHARACTERISTICS.length
+      : 0
 
   const appointment = useQuery({
     queryKey: ['appointment', id],
@@ -75,7 +127,11 @@ function FeedbackPage() {
     mutationFn: () =>
       feedbackApi.submit({
         appointment_id: id,
-        rating,
+        professionalism: ratings.professionalism!,
+        communication: ratings.communication!,
+        punctuality: ratings.punctuality!,
+        attentiveness: ratings.attentiveness!,
+        effectiveness: ratings.effectiveness!,
         tags,
         text_comment: comment || null,
         audio_file: audio,
@@ -134,26 +190,53 @@ function FeedbackPage() {
 
       <div className="space-y-8">
         <section>
-          <h2 className="mb-3 font-medium">
-            1. Rating <span className="text-destructive">*</span>
-          </h2>
-          <div className="flex items-center gap-1">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setRating(i)}
-                className="transition-transform hover:scale-110"
-                aria-label={`Rate ${i} star${i > 1 ? 's' : ''}`}
-              >
-                <Star
-                  className={cn(
-                    'size-9',
-                    i <= rating ? 'fill-amber-400 text-amber-400' : 'fill-muted text-muted',
-                  )}
-                />
-              </button>
-            ))}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-medium">
+              1. Rate the doctor <span className="text-destructive">*</span>
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Average:{' '}
+              <span className="font-semibold text-foreground">
+                {allRated ? average.toFixed(1) : '—'}
+              </span>
+              /5
+            </p>
+          </div>
+          <div className="space-y-4">
+            {CHARACTERISTICS.map(({ key, label, description, icon: Icon }) => {
+              const value = ratings[key] ?? 0
+              return (
+                <div key={key} className="rounded-xl border bg-muted/30 p-3">
+                  <div className="flex items-center gap-2">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-background text-primary">
+                      <Icon className="size-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{label}</p>
+                      <p className="text-xs text-muted-foreground">{description}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setRatings((prev) => ({ ...prev, [key]: i }))}
+                        className="transition-transform hover:scale-110"
+                        aria-label={`${label}: ${i} star${i > 1 ? 's' : ''}`}
+                      >
+                        <Star
+                          className={cn(
+                            'size-6',
+                            i <= value ? 'fill-amber-400 text-amber-400' : 'fill-muted text-muted',
+                          )}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </section>
 

@@ -223,7 +223,7 @@ async def test_feedback_processing_internal_endpoint(client):
     assert transcript.json()["transcript"] == "hello"
 
 
-# --- questions & push subscriptions --------------------------------------
+# --- questions -------------------------------------------------------------
 
 
 async def test_question_lifecycle(client):
@@ -250,28 +250,6 @@ async def test_question_lifecycle(client):
     resp = await client.delete(f"/questions/{created['id']}")
     assert resp.status_code == 204
     assert (await client.get(f"/questions/{created['id']}")).status_code == 404
-
-
-async def test_push_subscriptions_list_and_delete(client):
-    user = (await client.post("/users", json={"full_name": "User A", "username": "push_api_u"})).json()
-    created = (
-        await client.post(
-            "/push-subscriptions",
-            json={
-                "user_id": user["id"],
-                "endpoint": "https://push.example/ep-api",
-                "p256dh": "k",
-                "auth_key": "a",
-            },
-        )
-    ).json()
-
-    listed = await client.get(f"/push-subscriptions?user_id={user['id']}")
-    assert [s["id"] for s in listed.json()] == [created["id"]]
-
-    resp = await client.delete(f"/push-subscriptions/{created['id']}")
-    assert resp.status_code == 204
-    assert (await client.get(f"/push-subscriptions?user_id={user['id']}")).json() == []
 
 
 # --- payments ------------------------------------------------------------

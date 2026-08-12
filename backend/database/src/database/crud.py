@@ -19,7 +19,6 @@ from .models import (
     Payment,
     PaymentProvider,
     PaymentStatus,
-    PushSubscription,
     Question,
     User,
     UserRole,
@@ -237,36 +236,6 @@ async def delete_notification(session: AsyncSession, notification: Notification)
     await session.commit()
 
 
-async def get_push_subscription_by_endpoint(
-    session: AsyncSession, endpoint: str
-) -> PushSubscription | None:
-    result = await session.execute(
-        select(PushSubscription).where(PushSubscription.endpoint == endpoint)
-    )
-    return result.scalar_one_or_none()
-
-
-async def get_push_subscription_by_id(
-    session: AsyncSession, subscription_id: int
-) -> PushSubscription | None:
-    return await session.get(PushSubscription, subscription_id)
-
-
-async def list_push_subscriptions(
-    session: AsyncSession, user_id: int | None = None, limit: int = 50, offset: int = 0
-) -> list[PushSubscription]:
-    stmt = select(PushSubscription).order_by(PushSubscription.created_at.desc())
-    if user_id is not None:
-        stmt = stmt.where(PushSubscription.user_id == user_id)
-    result = await session.execute(stmt.limit(limit).offset(offset))
-    return list(result.scalars().all())
-
-
-async def delete_push_subscription(session: AsyncSession, subscription: PushSubscription) -> None:
-    await session.delete(subscription)
-    await session.commit()
-
-
 async def list_questions(
     session: AsyncSession, hospital_id: int | None = None, limit: int = 50, offset: int = 0
 ) -> list[Question]:
@@ -312,18 +281,6 @@ async def update_question(
 async def delete_question(session: AsyncSession, question: Question) -> None:
     await session.delete(question)
     await session.commit()
-
-
-async def create_push_subscription(
-    session: AsyncSession, user_id: int, endpoint: str, p256dh: str, auth_key: str
-) -> PushSubscription:
-    subscription = PushSubscription(
-        user_id=user_id, endpoint=endpoint, p256dh=p256dh, auth_key=auth_key
-    )
-    session.add(subscription)
-    await session.commit()
-    await session.refresh(subscription)
-    return subscription
 
 
 async def get_payment(session: AsyncSession, payment_id: int) -> Payment | None:
@@ -697,6 +654,9 @@ async def create_feedback(
     hospital_id: int | None = None,
     doctor_id: int | None = None,
     category_id: int | None = None,
+    rating: float | None = None,
+    tags: list[str] | None = None,
+    text_comment: str | None = None,
     answers: list[dict] | None = None,
     audio_file: str | None = None,
 ) -> Feedback:
@@ -706,6 +666,9 @@ async def create_feedback(
         hospital_id=hospital_id,
         doctor_id=doctor_id,
         category_id=category_id,
+        rating=rating,
+        tags=tags or [],
+        text_comment=text_comment,
         answers=answers or [],
         audio_file=audio_file,
         processing_status=FeedbackProcessingStatus.pending,

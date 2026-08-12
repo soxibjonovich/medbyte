@@ -119,7 +119,7 @@ async def test_delete_appointment(session):
     assert await crud.get_appointment(session, appointment.id) is None
 
 
-# --- notifications & push subscriptions --------------------------------------
+# --- notifications -----------------------------------------------------------
 
 
 async def test_create_list_update_delete_notification(session):
@@ -135,23 +135,6 @@ async def test_create_list_update_delete_notification(session):
 
     await crud.delete_notification(session, notif)
     assert await crud.get_notification(session, notif.id) is None
-
-
-async def test_push_subscription_create_and_lookup(session):
-    user = await crud.create_user(session, full_name="A", username="push_u")
-    sub = await crud.create_push_subscription(
-        session, user_id=user.id, endpoint="https://push.example/ep1", p256dh="key1", auth_key="auth1"
-    )
-    fetched = await crud.get_push_subscription_by_endpoint(session, "https://push.example/ep1")
-    assert fetched is not None
-    assert fetched.id == sub.id
-    assert await crud.get_push_subscription_by_endpoint(session, "missing") is None
-
-    listed = await crud.list_push_subscriptions(session, user_id=user.id)
-    assert [s.id for s in listed] == [sub.id]
-
-    await crud.delete_push_subscription(session, sub)
-    assert await crud.get_push_subscription_by_id(session, sub.id) is None
 
 
 # --- questions -----------------------------------------------------------

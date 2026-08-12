@@ -119,6 +119,13 @@ export interface Discount {
 export type FeedbackSentiment = 'positive' | 'neutral' | 'negative'
 export type FeedbackProcessingStatus = 'pending' | 'processing' | 'done' | 'failed'
 
+export interface FeedbackAnswer {
+  question_id: number
+  question: string
+  rating: number | null
+  comment: string | null
+}
+
 export interface Feedback {
   id: number
   user_id: number
@@ -126,9 +133,10 @@ export interface Feedback {
   hospital_id: number | null
   doctor_id: number | null
   category_id: number | null
-  rating: number
+  rating: number | null
   tags: string[]
   text_comment: string | null
+  answers: FeedbackAnswer[]
   audio_file: string | null
   transcript: string | null
   sentiment: FeedbackSentiment | null

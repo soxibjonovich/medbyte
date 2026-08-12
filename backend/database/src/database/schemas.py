@@ -137,24 +137,6 @@ class UpdateNotificationRequest(BaseModel):
     is_read: bool | None = None
 
 
-class PushSubscriptionResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    user_id: int
-    endpoint: str
-    p256dh: str
-    auth_key: str
-    created_at: datetime
-
-
-class CreatePushSubscriptionRequest(BaseModel):
-    user_id: int
-    endpoint: str = Field(min_length=1, max_length=1000)
-    p256dh: str = Field(min_length=1, max_length=255)
-    auth_key: str = Field(min_length=1, max_length=255)
-
-
 class PaymentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -346,6 +328,9 @@ class FeedbackResponse(BaseModel):
     hospital_id: int | None
     doctor_id: int | None
     category_id: int | None
+    rating: float | None
+    tags: list[str]
+    text_comment: str | None
     answers: list[FeedbackAnswer]
     audio_file: str | None
     transcript: str | None
@@ -370,6 +355,9 @@ class CreateFeedbackRequest(BaseModel):
     hospital_id: int | None = None
     doctor_id: int | None = None
     category_id: int | None = None
+    rating: float | None = Field(default=None, ge=1, le=5)
+    tags: list[str] = Field(default_factory=list)
+    text_comment: str | None = Field(default=None, max_length=2000)
     answers: list[FeedbackAnswer] = Field(default_factory=list)
     audio_file: str | None = None
 

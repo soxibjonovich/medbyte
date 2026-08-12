@@ -1,4 +1,3 @@
-import json
 import os
 import uuid
 from contextlib import asynccontextmanager
@@ -13,6 +12,17 @@ from .deps import get_current_user, require_admin
 from .schemas import Feedback, FeedbackTranscript, Question, Sentiment
 
 AUDIO_STORAGE_DIR = Path(os.environ.get("AUDIO_STORAGE_DIR", "audio_uploads"))
+
+# The five doctor characteristics patients rate. Each is scored 1-5; the
+# overall rating is their average (sum / 5).
+CHARACTERISTICS = [
+    ("professionalism", "Professionalism"),
+    ("communication", "Communication"),
+    ("punctuality", "Punctuality"),
+    ("attentiveness", "Attentiveness"),
+    ("effectiveness", "Effectiveness"),
+]
+MAX_RATING = len(CHARACTERISTICS)
 
 
 @asynccontextmanager
@@ -56,7 +66,13 @@ async def _store_audio(audio_file: UploadFile) -> str:
 )
 async def create_feedback(
     appointment_id: int = Form(...),
-    answers: str = Form(default="[]"),
+    professionalism: int = Form(...),
+    communication: int = Form(...),
+    punctuality: int = Form(...),
+    attentiveness: int = Form(...),
+    effectiveness: int = Form(...),
+    tags: list[str] = Form(default=[]),
+    text_comment: str | None = Form(default=None),
     audio_file: UploadFile | None = None,
     current_user: dict = Depends(get_current_user),
 ):
@@ -68,34 +84,45 @@ async def create_feedback(
             status_code=status.HTTP_403_FORBIDDEN, detail="not your appointment"
         )
 
-    try:
-        answers_payload = json.loads(answers)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="answers must be valid JSON")
-    if not isinstance(answers_payload, list):
-        raise HTTPException(status_code=422, detail="answers must be a list")
+    submitted = (
+        professionalism,
+        communication,
+        punctuality,
+        attentiveness,
+        effectiveness,
+    )
+    rating_values = {
+        key: value for (key, _), value in zip(CHARACTERISTICS, submitted)
+    }
+    for key, value in rating_values.items():
+        if not isinstance(value, int) or not 1 <= value <= 5:
+            raise HTTPException(
+                status_code=422, detail=f"{key} must be an integer between 1 and 5"
+            )
 
-    question_map = {}
-    if appointment.get("hospital_id") is not None:
-        questions = await database_client.get_or_none(
-            f"/questions?hospital_id={appointment['hospital_id']}"
-        )
-        if questions:
-            question_map = {q["id"]: q["text"] for q in questions}
+    # Average of the five characteristic ratings — the overall score (sum / 5).
+    rating_avg = sum(rating_values.values()) / MAX_RATING
 
-    normalized_answers = []
-    for item in answers_payload:
-        try:
-            qid = int(item["question_id"])
-        except (KeyError, TypeError, ValueError):
-            raise HTTPException(status_code=422, detail="each answer requires a question_id")
-        question_text = question_map.get(qid) or item.get("question", "")
-        normalized_answers.append(
+    answers = [
+        {"question_id": index + 1, "question": label, "rating": rating_values[key], "comment": None}
+        for index, (key, label) in enumerate(CHARACTERISTICS)
+    ]
+    if text_comment:
+        answers.append(
             {
-                "question_id": qid,
-                "question": question_text,
-                "rating": item.get("rating"),
-                "comment": item.get("comment"),
+                "question_id": 0,
+                "question": "Additional comments",
+                "rating": None,
+                "comment": text_comment,
+            }
+        )
+    if tags:
+        answers.append(
+            {
+                "question_id": -1,
+                "question": "What they liked",
+                "rating": None,
+                "comment": ", ".join(tags),
             }
         )
 
@@ -115,7 +142,10 @@ async def create_feedback(
             "hospital_id": appointment.get("hospital_id"),
             "doctor_id": appointment.get("doctor_id"),
             "category_id": category_id,
-            "answers": normalized_answers,
+            "rating": rating_avg,
+            "tags": tags,
+            "text_comment": text_comment,
+            "answers": answers,
             "audio_file": stored_audio_path,
         },
     )

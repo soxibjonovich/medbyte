@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 
@@ -56,6 +55,22 @@ def _get_or_none_router(user=None, appointment=None, doctor=None, questions=None
     return _dispatch
 
 
+def _ratings(**overrides):
+    record = {
+        "professionalism": 4,
+        "communication": 5,
+        "punctuality": 4,
+        "attentiveness": 5,
+        "effectiveness": 4,
+    }
+    record.update(overrides)
+    return record
+
+
+def _ratings_data(**overrides):
+    return {key: str(value) for key, value in _ratings(**overrides).items()}
+
+
 async def test_health_endpoint(client):
     resp = await client.get("/health")
     assert resp.status_code == 200
@@ -73,7 +88,7 @@ async def test_create_feedback_requires_auth(client):
 async def test_create_feedback_appointment_not_found(client, patch_db):
     patch_db.get_or_none.side_effect = _get_or_none_router(user=_user(), appointment=None)
     resp = await client.post(
-        "/api/feedback", data={"appointment_id": "1"}, headers=_auth_header()
+        "/api/feedback", data={**_ratings_data(), "appointment_id": "1"}, headers=_auth_header()
     )
     assert resp.status_code == 404
 
@@ -83,45 +98,47 @@ async def test_create_feedback_not_your_appointment(client, patch_db):
         user=_user(), appointment=_appointment(user_id=999)
     )
     resp = await client.post(
-        "/api/feedback", data={"appointment_id": "1"}, headers=_auth_header()
+        "/api/feedback", data={**_ratings_data(), "appointment_id": "1"}, headers=_auth_header()
     )
     assert resp.status_code == 403
 
 
-async def test_create_feedback_invalid_answers_json(client, patch_db):
-    patch_db.get_or_none.side_effect = _get_or_none_router(
-        user=_user(), appointment=_appointment(hospital_id=None), questions=None
-    )
-    resp = await client.post(
-        "/api/feedback",
-        data={"appointment_id": "1", "answers": "not json"},
-        headers=_auth_header(),
-    )
-    assert resp.status_code == 422
-
-
-async def test_create_feedback_answers_not_a_list(client, patch_db):
+async def test_create_feedback_missing_characteristic_rating(client, patch_db):
     patch_db.get_or_none.side_effect = _get_or_none_router(
         user=_user(), appointment=_appointment(hospital_id=None)
     )
     resp = await client.post(
         "/api/feedback",
-        data={"appointment_id": "1", "answers": json.dumps({"question_id": 1})},
+        data={
+            "appointment_id": "1",
+            "professionalism": "4",
+            "communication": "5",
+            "punctuality": "4",
+            "attentiveness": "5",
+        },
         headers=_auth_header(),
     )
     assert resp.status_code == 422
 
 
-async def test_create_feedback_answer_missing_question_id(client, patch_db):
+async def test_create_feedback_characteristic_rating_out_of_range(client, patch_db):
     patch_db.get_or_none.side_effect = _get_or_none_router(
         user=_user(), appointment=_appointment(hospital_id=None)
     )
     resp = await client.post(
         "/api/feedback",
-        data={"appointment_id": "1", "answers": json.dumps([{"rating": 5}])},
+        data={
+            "appointment_id": "1",
+            "professionalism": "4",
+            "communication": "6",
+            "punctuality": "4",
+            "attentiveness": "5",
+            "effectiveness": "5",
+        },
         headers=_auth_header(),
     )
     assert resp.status_code == 422
+    assert "communication" in resp.json()["detail"]
 
 
 async def test_create_feedback_rate_limited_returns_429(client, patch_db, monkeypatch):
@@ -144,7 +161,6 @@ async def test_create_feedback_success_no_audio(client, patch_db, patch_rabbitmq
     patch_db.get_or_none.side_effect = _get_or_none_router(
         user=_user(),
         appointment=_appointment(hospital_id=2, doctor_id=None),
-        questions=[{"id": 1, "text": "How was it?"}],
     )
     patch_db.post.return_value = {
         "id": 10,
@@ -153,7 +169,18 @@ async def test_create_feedback_success_no_audio(client, patch_db, patch_rabbitmq
         "hospital_id": 2,
         "doctor_id": None,
         "category_id": None,
-        "answers": [{"question_id": 1, "question": "How was it?", "rating": 5, "comment": None}],
+        "rating": 4.4,
+        "tags": ["Friendly doctor"],
+        "text_comment": "Great visit",
+        "answers": [
+            {"question_id": 1, "question": "Professionalism", "rating": 4, "comment": None},
+            {"question_id": 2, "question": "Communication", "rating": 5, "comment": None},
+            {"question_id": 3, "question": "Punctuality", "rating": 4, "comment": None},
+            {"question_id": 4, "question": "Attentiveness", "rating": 5, "comment": None},
+            {"question_id": 5, "question": "Effectiveness", "rating": 4, "comment": None},
+            {"question_id": 0, "question": "Additional comments", "rating": None, "comment": "Great visit"},
+            {"question_id": -1, "question": "What they liked", "rating": None, "comment": "Friendly doctor"},
+        ],
         "audio_file": None,
         "transcript": None,
         "sentiment": None,
@@ -163,21 +190,57 @@ async def test_create_feedback_success_no_audio(client, patch_db, patch_rabbitmq
 
     resp = await client.post(
         "/api/feedback",
-        data={
-            "appointment_id": "1",
-            "answers": json.dumps([{"question_id": 1, "rating": 5}]),
-        },
+        data={**_ratings_data(), "appointment_id": "1", "text_comment": "Great visit", "tags": "Friendly doctor"},
         headers=_auth_header(),
     )
     assert resp.status_code == 201
     body = resp.json()
     assert body["id"] == 10
-    assert body["answers"][0]["question"] == "How was it?"
+    assert body["rating"] == 4.4
+    assert body["answers"][0]["question"] == "Professionalism"
 
     post_kwargs = patch_db.post.call_args.kwargs
-    assert post_kwargs["json"]["answers"][0]["question_id"] == 1
+    assert post_kwargs["json"]["rating"] == 4.4
+    assert post_kwargs["json"]["tags"] == ["Friendly doctor"]
+    assert post_kwargs["json"]["text_comment"] == "Great visit"
+    assert len(post_kwargs["json"]["answers"]) == 7
     assert post_kwargs["json"]["audio_file"] is None
     patch_rabbitmq.assert_not_called()
+
+
+async def test_create_feedback_averages_five_ratings(client, patch_db, patch_rabbitmq):
+    patch_db.get_or_none.side_effect = _get_or_none_router(
+        user=_user(), appointment=_appointment(hospital_id=None, doctor_id=None)
+    )
+    patch_db.post.return_value = {
+        "id": 13,
+        "user_id": 1,
+        "appointment_id": 1,
+        "hospital_id": None,
+        "doctor_id": None,
+        "category_id": None,
+        "rating": 4.0,
+        "tags": [],
+        "text_comment": None,
+        "answers": [],
+        "audio_file": None,
+        "transcript": None,
+        "sentiment": None,
+        "processing_status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    resp = await client.post(
+        "/api/feedback",
+        data={**_ratings_data(), "appointment_id": "1"},
+        headers=_auth_header(),
+    )
+    assert resp.status_code == 201
+
+    post_kwargs = patch_db.post.call_args.kwargs
+    # (4 + 5 + 4 + 5 + 4) / 5 == 4.4
+    assert post_kwargs["json"]["rating"] == 4.4
+    assert [answer["rating"] for answer in post_kwargs["json"]["answers"][:5]] == [4, 5, 4, 5, 4]
 
 
 async def test_create_feedback_category_id_derived_from_doctor(client, patch_db, patch_rabbitmq):
@@ -193,6 +256,9 @@ async def test_create_feedback_category_id_derived_from_doctor(client, patch_db,
         "hospital_id": None,
         "doctor_id": 7,
         "category_id": 42,
+        "rating": 4.0,
+        "tags": [],
+        "text_comment": None,
         "answers": [],
         "audio_file": None,
         "transcript": None,
@@ -202,7 +268,7 @@ async def test_create_feedback_category_id_derived_from_doctor(client, patch_db,
     }
 
     resp = await client.post(
-        "/api/feedback", data={"appointment_id": "1"}, headers=_auth_header()
+        "/api/feedback", data={**_ratings_data(), "appointment_id": "1"}, headers=_auth_header()
     )
     assert resp.status_code == 201
     post_kwargs = patch_db.post.call_args.kwargs
@@ -221,6 +287,9 @@ async def test_create_feedback_with_audio_publishes_stt_job(client, patch_db, pa
         "hospital_id": None,
         "doctor_id": None,
         "category_id": None,
+        "rating": 4.0,
+        "tags": [],
+        "text_comment": None,
         "answers": [],
         "audio_file": "audio_uploads/fake.wav",
         "transcript": None,
@@ -231,7 +300,7 @@ async def test_create_feedback_with_audio_publishes_stt_job(client, patch_db, pa
 
     resp = await client.post(
         "/api/feedback",
-        data={"appointment_id": "1"},
+        data={**_ratings_data(), "appointment_id": "1"},
         files={"audio_file": ("note.wav", b"fake audio bytes", "audio/wav")},
         headers=_auth_header(),
     )

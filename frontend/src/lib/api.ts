@@ -316,10 +316,6 @@ export const notificationsApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  testSend: () =>
-    apiFetch<{ sent: number; failed: number }>(API.notifications, '/test-send', {
-      method: 'POST',
-    }),
 }
 
 /* ------------------------------------------------------------------ */
@@ -343,7 +339,11 @@ export const paymentApi = {
 
 export interface FeedbackSubmitInput {
   appointment_id: number
-  rating: number
+  professionalism: number
+  communication: number
+  punctuality: number
+  attentiveness: number
+  effectiveness: number
   tags?: string[]
   text_comment?: string | null
   audio_file?: File | null
@@ -353,7 +353,11 @@ export const feedbackApi = {
   submit: (input: FeedbackSubmitInput) => {
     const form = new FormData()
     form.append('appointment_id', String(input.appointment_id))
-    form.append('rating', String(input.rating))
+    form.append('professionalism', String(input.professionalism))
+    form.append('communication', String(input.communication))
+    form.append('punctuality', String(input.punctuality))
+    form.append('attentiveness', String(input.attentiveness))
+    form.append('effectiveness', String(input.effectiveness))
     for (const tag of input.tags ?? []) form.append('tags', tag)
     if (input.text_comment) form.append('text_comment', input.text_comment)
     if (input.audio_file) form.append('audio_file', input.audio_file)
