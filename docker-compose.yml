@@ -113,6 +113,45 @@ services:
     ports:
       - "8008:8000"
 
+  notifications:
+    <<: *service-common
+    build:
+      <<: *build-context
+      dockerfile: backend/notifications/Dockerfile
+    ports:
+      - "8009:8000"
+
+  payment:
+    <<: *service-common
+    build:
+      <<: *build-context
+      dockerfile: backend/payment/Dockerfile
+    env_file:
+      - backend/payment/.env
+    environment:
+      <<: *common-env
+      PAYMENT_SUCCESS_URL: ${PAYMENT_SUCCESS_URL:-http://localhost:8010/api/payments/success}
+      PAYMENT_CANCEL_URL: ${PAYMENT_CANCEL_URL:-http://localhost:8010/api/payments/cancel}
+      PAYMENT_DEMO_AMOUNT: ${PAYMENT_DEMO_AMOUNT:-2000}
+      PAYMENT_DEMO_CURRENCY: ${PAYMENT_DEMO_CURRENCY:-usd}
+    ports:
+      - "8010:8000"
+
+  ai:
+    <<: *service-common
+    build:
+      <<: *build-context
+      dockerfile: backend/ai/Dockerfile
+    env_file:
+      - backend/ai/.env
+    environment:
+      <<: *common-env
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://172.16.8.197:1234/v1}
+      LLM_MODEL: ${LLM_MODEL:-qwen}
+      STT_BASE_URL: ${STT_BASE_URL:-https://service.muxlisa.uz/api/v1}
+    ports:
+      - "8011:8000"
+
   stt-worker:
     <<: *service-common
     build:

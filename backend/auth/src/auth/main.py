@@ -34,6 +34,7 @@ async def register_new_user(user: schemas.CreateUser):
         "/users",
         json={
             "full_name": user.full_name,
+            "username": user.username,
             "phone": user.phone,
             "email": user.email,
             "password_hash": password_hash,
@@ -48,14 +49,14 @@ async def register_new_user(user: schemas.CreateUser):
 
 @router.post("/login", response_model=schemas.TokenResponse)
 async def login_user(credentials: schemas.LoginUser):
-    record = await database_client.get_or_none(f"/users/by-phone/{credentials.phone}")
+    record = await database_client.get_or_none(f"/users/by-username/{credentials.username}")
     if (
         record is None
         or record["password_hash"] is None
         or not security.verify_password(credentials.password, record["password_hash"])
     ):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid phone or password"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid username or password"
         )
 
     token = security.create_access_token(record["id"])
