@@ -1,10 +1,21 @@
+import logging
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
+import jwt
+from fastapi import (
+    APIRouter,
+    Depends,
+    FastAPI,
+    HTTPException,
+    Query,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 
-from . import database_client
+from . import database_client, rabbitmq_client, security
 from .deps import require_admin, require_staff
 from .schemas import (
     AuditLogEntry,
@@ -14,11 +25,13 @@ from .schemas import (
     CreateHospital,
     CreateMedicalCategory,
     CreateQueueEntry,
+    CreateQuestion,
     Discount,
     Doctor,
     Hospital,
     HospitalDetail,
     MedicalCategory,
+    Question,
     QueueEntry,
     SortOption,
     StatsOverview,
@@ -26,13 +39,41 @@ from .schemas import (
     UpdateDoctor,
     UpdateHospital,
     UpdateMedicalCategory,
+    UpdateQuestion,
 )
+
+
+class ConnectionManager:
+    """Tracks locally-connected websocket clients and fans out broadcast messages to them."""
+
+    def __init__(self) -> None:
+        self._connections: set[WebSocket] = set()
+
+    def connect(self, websocket: WebSocket) -> None:
+        self._connections.add(websocket)
+
+    def disconnect(self, websocket: WebSocket) -> None:
+        self._connections.discard(websocket)
+
+    async def broadcast(self, message: dict) -> None:
+        for websocket in list(self._connections):
+            try:
+                await websocket.send_json(message)
+            except Exception:
+                self.disconnect(websocket)
+
+
+connection_manager = ConnectionManager()
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     database_client.init_client()
+    await rabbitmq_client.init_client()
+    queue_consumer = await rabbitmq_client.consume_queue_updates(connection_manager.broadcast)
     yield
+    await queue_consumer.cancel()
+    await rabbitmq_client.close_client()
     await database_client.close_client()
 
 
@@ -44,6 +85,7 @@ doctors_router = APIRouter(prefix="/api/doctors", dependencies=[Depends(require_
 categories_router = APIRouter(prefix="/api/categories", dependencies=[Depends(require_admin)])
 discounts_router = APIRouter(prefix="/api/discounts", dependencies=[Depends(require_admin)])
 queue_router = APIRouter(prefix="/api/queue", dependencies=[Depends(require_staff)])
+questions_router = APIRouter(prefix="/api/admin/questions", dependencies=[Depends(require_staff)])
 
 
 @app.get("/health")
@@ -309,8 +351,101 @@ async def list_queue(
 @queue_router.post("", response_model=QueueEntry, status_code=201)
 async def create_queue_entry(payload: CreateQueueEntry, actor: dict = Depends(require_staff)):
     entry = await database_client.post("/appointments", json=payload.model_dump())
+    fire_at = datetime.fromisoformat(entry["scheduled_at"]) + timedelta(hours=2)
+    delay_ms = max(0, int((fire_at - datetime.now(timezone.utc)).total_seconds() * 1000))
+    try:
+        await rabbitmq_client.publish_feedback_request(
+            appointment_id=entry["id"],
+            user_id=entry["user_id"],
+            hospital_id=entry.get("hospital_id"),
+            fire_at=fire_at.isoformat(),
+            delay_ms=delay_ms,
+        )
+    except Exception:
+        logging.getLogger(__name__).warning("failed to schedule feedback push", exc_info=True)
+    try:
+        await rabbitmq_client.publish_queue_update({"type": "queue_entry_created", "entry": entry})
+    except Exception:
+        logging.getLogger(__name__).warning("failed to publish queue update", exc_info=True)
     await _log(actor, "create", "queue_entry", entry["id"])
     return entry
+
+
+# --- questions -----------------------------------------------------------
+
+
+@questions_router.get("", response_model=list[Question])
+async def list_questions(
+    hospital_id: int = Query(...),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+):
+    return await database_client.get(
+        f"/questions?{urlencode({'hospital_id': hospital_id, 'limit': limit, 'offset': offset})}"
+    )
+
+
+@questions_router.post("", response_model=Question, status_code=201)
+async def create_question(payload: CreateQuestion, actor: dict = Depends(require_staff)):
+    question = await database_client.post("/questions", json=payload.model_dump())
+    await _log(actor, "create", "question", question["id"])
+    return question
+
+
+@questions_router.patch("/{question_id}", response_model=Question)
+async def update_question(
+    question_id: int, payload: UpdateQuestion, actor: dict = Depends(require_staff)
+):
+    question = await database_client.patch(
+        f"/questions/{question_id}", json=payload.model_dump(exclude_unset=True)
+    )
+    await _log(actor, "update", "question", question_id)
+    return question
+
+
+@questions_router.delete("/{question_id}", status_code=204)
+async def delete_question(question_id: int, actor: dict = Depends(require_staff)):
+    await database_client.delete(f"/questions/{question_id}")
+    await _log(actor, "delete", "question", question_id)
+
+
+@app.websocket("/api/queue/ws")
+async def queue_ws(websocket: WebSocket):
+    """Live queue updates over a websocket, fed by rabbitmq_client.consume_queue_updates().
+
+    Browsers can't set an Authorization header on the websocket handshake, so the JWT is
+    passed as a `token` query param instead. Starlette allows sending `websocket.close`
+    with a custom code while the connection is still in the CONNECTING state, so we reject
+    unauthenticated/unauthorized connections before calling accept() — no need for the
+    accept-then-close dance.
+    """
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=4401)
+        return
+    try:
+        user_id = security.decode_access_token(token)
+    except jwt.PyJWTError:
+        await websocket.close(code=4401)
+        return
+
+    user = await database_client.get_or_none(f"/users/{user_id}")
+    if user is None:
+        await websocket.close(code=4401)
+        return
+    if user["role"] not in ("staff", "admin"):
+        await websocket.close(code=4403)
+        return
+
+    await websocket.accept()
+    connection_manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        connection_manager.disconnect(websocket)
 
 
 app.include_router(stats_router)
@@ -319,3 +454,4 @@ app.include_router(doctors_router)
 app.include_router(categories_router)
 app.include_router(discounts_router)
 app.include_router(queue_router)
+app.include_router(questions_router)

@@ -174,14 +174,22 @@ async def test_create_doctor_success(client):
 
 
 async def test_create_feedback_requires_existing_user_and_appointment(client):
-    resp = await client.post(
-        "/feedback", json={"user_id": 999, "appointment_id": 999, "rating": 5}
-    )
+    resp = await client.post("/feedback", json={"user_id": 999, "appointment_id": 999})
     assert resp.status_code == 404
 
 
 async def test_feedback_processing_internal_endpoint(client):
     user = (await client.post("/users", json={"full_name": "User A", "username": "fb_api_u"})).json()
+    hospital = (
+        await client.post(
+            "/hospitals", json={"name": "H", "address": "x", "city": "C", "lat": 0, "lng": 0}
+        )
+    ).json()
+    question = (
+        await client.post(
+            "/questions", json={"hospital_id": hospital["id"], "text": "Cleanliness?"}
+        )
+    ).json()
     appointment = (
         await client.post(
             "/appointments",
@@ -191,9 +199,17 @@ async def test_feedback_processing_internal_endpoint(client):
     feedback = (
         await client.post(
             "/feedback",
-            json={"user_id": user["id"], "appointment_id": appointment["id"], "rating": 4},
+            json={
+                "user_id": user["id"],
+                "appointment_id": appointment["id"],
+                "hospital_id": hospital["id"],
+                "answers": [
+                    {"question_id": question["id"], "question": question["text"], "rating": 4}
+                ],
+            },
         )
     ).json()
+    assert feedback["answers"][0]["rating"] == 4
 
     resp = await client.patch(
         f"/feedback/{feedback['id']}/processing",
@@ -205,6 +221,57 @@ async def test_feedback_processing_internal_endpoint(client):
     transcript = await client.get(f"/feedback/{feedback['id']}/transcript")
     assert transcript.status_code == 200
     assert transcript.json()["transcript"] == "hello"
+
+
+# --- questions & push subscriptions --------------------------------------
+
+
+async def test_question_lifecycle(client):
+    hospital = (
+        await client.post(
+            "/hospitals", json={"name": "H", "address": "x", "city": "C", "lat": 0, "lng": 0}
+        )
+    ).json()
+    created = (
+        await client.post(
+            "/questions", json={"hospital_id": hospital["id"], "text": "Wait time?", "position": 1}
+        )
+    ).json()
+    assert created["position"] == 1
+
+    listed = await client.get(f"/questions?hospital_id={hospital['id']}")
+    assert [q["id"] for q in listed.json()] == [created["id"]]
+
+    updated = (
+        await client.patch(f"/questions/{created['id']}", json={"is_active": False})
+    ).json()
+    assert updated["is_active"] is False
+
+    resp = await client.delete(f"/questions/{created['id']}")
+    assert resp.status_code == 204
+    assert (await client.get(f"/questions/{created['id']}")).status_code == 404
+
+
+async def test_push_subscriptions_list_and_delete(client):
+    user = (await client.post("/users", json={"full_name": "User A", "username": "push_api_u"})).json()
+    created = (
+        await client.post(
+            "/push-subscriptions",
+            json={
+                "user_id": user["id"],
+                "endpoint": "https://push.example/ep-api",
+                "p256dh": "k",
+                "auth_key": "a",
+            },
+        )
+    ).json()
+
+    listed = await client.get(f"/push-subscriptions?user_id={user['id']}")
+    assert [s["id"] for s in listed.json()] == [created["id"]]
+
+    resp = await client.delete(f"/push-subscriptions/{created['id']}")
+    assert resp.status_code == 204
+    assert (await client.get(f"/push-subscriptions?user_id={user['id']}")).json() == []
 
 
 # --- payments ------------------------------------------------------------

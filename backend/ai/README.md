@@ -8,8 +8,9 @@ client-side threading).
 
 - `POST /api/ai/chat` — `{message, conversation_id?, user_geo?}` -> LLM reply.
 - `POST /api/ai/chat/audio` — multipart `audio` file (+ optional `conversation_id`,
-  `user_geo` form fields) -> transcript + LLM reply. Audio bytes and STT result are
-  processed in memory only, never written to disk or a database.
+  `user_geo` form fields) -> transcript only (STT result, in-memory). Client renders
+  the transcript as the user's message, then sends that text to `POST /api/ai/chat`
+  to get the AI reply.
 
 ## LLM backend
 

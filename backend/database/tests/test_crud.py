@@ -147,6 +147,32 @@ async def test_push_subscription_create_and_lookup(session):
     assert fetched.id == sub.id
     assert await crud.get_push_subscription_by_endpoint(session, "missing") is None
 
+    listed = await crud.list_push_subscriptions(session, user_id=user.id)
+    assert [s.id for s in listed] == [sub.id]
+
+    await crud.delete_push_subscription(session, sub)
+    assert await crud.get_push_subscription_by_id(session, sub.id) is None
+
+
+# --- questions -----------------------------------------------------------
+
+
+async def test_question_crud(session):
+    hospital = await crud.create_hospital(session, name="H", address="x", city="C", lat=0, lng=0)
+    q1 = await crud.create_question(session, hospital_id=hospital.id, text="Cleanliness?", position=0)
+    q2 = await crud.create_question(session, hospital_id=hospital.id, text="Wait time?", position=1)
+    assert q1.is_active is True
+
+    listed = await crud.list_questions(session, hospital_id=hospital.id)
+    assert [q.id for q in listed] == [q1.id, q2.id]
+
+    updated = await crud.update_question(session, q2, is_active=False)
+    assert updated.is_active is False
+
+    await crud.delete_question(session, q1)
+    assert await crud.get_question(session, q1.id) is None
+    assert len(await crud.list_questions(session, hospital_id=hospital.id)) == 1
+
 
 # --- payments ------------------------------------------------------------
 
@@ -311,21 +337,22 @@ async def test_list_doctors_filters(session):
 
 async def test_create_feedback_and_get(session):
     user = await crud.create_user(session, full_name="A", username="fb_u")
+    hospital = await crud.create_hospital(session, name="H", address="x", city="C", lat=0, lng=0)
+    question = await crud.create_question(session, hospital_id=hospital.id, text="Cleanliness?")
     appointment = await crud.create_appointment(
         session, user_id=user.id, scheduled_at=datetime.now(timezone.utc)
     )
+    answers = [
+        {"question_id": question.id, "question": question.text, "rating": 5, "comment": "spotless"}
+    ]
     feedback = await crud.create_feedback(
-        session,
-        user_id=user.id,
-        appointment_id=appointment.id,
-        rating=5,
-        tags=["clean", "fast"],
+        session, user_id=user.id, appointment_id=appointment.id, answers=answers
     )
     assert feedback.processing_status == FeedbackProcessingStatus.pending
-    assert feedback.tags == ["clean", "fast"]
+    assert feedback.answers == answers
 
     fetched = await crud.get_feedback(session, feedback.id)
-    assert fetched.rating == 5
+    assert fetched.answers[0]["rating"] == 5
 
 
 async def test_update_feedback_processing(session):
@@ -333,7 +360,9 @@ async def test_update_feedback_processing(session):
     appointment = await crud.create_appointment(
         session, user_id=user.id, scheduled_at=datetime.now(timezone.utc)
     )
-    feedback = await crud.create_feedback(session, user_id=user.id, appointment_id=appointment.id, rating=3)
+    feedback = await crud.create_feedback(
+        session, user_id=user.id, appointment_id=appointment.id
+    )
     updated = await crud.update_feedback_processing(
         session,
         feedback,
@@ -353,9 +382,9 @@ async def test_list_feedback_filters(session):
     appointment = await crud.create_appointment(
         session, user_id=user.id, scheduled_at=datetime.now(timezone.utc)
     )
-    fb1 = await crud.create_feedback(session, user_id=user.id, appointment_id=appointment.id, rating=5)
+    fb1 = await crud.create_feedback(session, user_id=user.id, appointment_id=appointment.id)
     await crud.update_feedback_processing(session, fb1, sentiment=FeedbackSentiment.positive)
-    fb2 = await crud.create_feedback(session, user_id=user.id, appointment_id=appointment.id, rating=1)
+    fb2 = await crud.create_feedback(session, user_id=user.id, appointment_id=appointment.id)
     await crud.update_feedback_processing(session, fb2, sentiment=FeedbackSentiment.negative)
 
     positive_only = await crud.list_feedback(session, sentiment=FeedbackSentiment.positive)
@@ -367,7 +396,7 @@ async def test_list_feedback_date_range(session):
     appointment = await crud.create_appointment(
         session, user_id=user.id, scheduled_at=datetime.now(timezone.utc)
     )
-    await crud.create_feedback(session, user_id=user.id, appointment_id=appointment.id, rating=4)
+    await crud.create_feedback(session, user_id=user.id, appointment_id=appointment.id)
     future = datetime.now(timezone.utc) + timedelta(days=1)
     none_found = await crud.list_feedback(session, date_from=future)
     assert none_found == []
@@ -390,7 +419,7 @@ async def test_stats_overview(session):
     appointment = await crud.create_appointment(
         session, user_id=user.id, scheduled_at=datetime.now(timezone.utc)
     )
-    await crud.create_feedback(session, user_id=user.id, appointment_id=appointment.id, rating=5)
+    await crud.create_feedback(session, user_id=user.id, appointment_id=appointment.id)
     await crud.create_discount(
         session, user_id=user.id, title="t", code="c", percent_off=10
     )

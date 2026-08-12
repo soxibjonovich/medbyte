@@ -25,7 +25,7 @@ async def _handle_message(message: aio_pika.abc.AbstractIncomingMessage) -> None
         )
 
         try:
-            result = await stt_client.transcribe(audio_file)
+            transcript = await stt_client.transcribe(audio_file)
         except Exception:
             logger.warning("stt job failed for feedback_id=%s", feedback_id, exc_info=True)
             await database_client.patch(
@@ -35,12 +35,7 @@ async def _handle_message(message: aio_pika.abc.AbstractIncomingMessage) -> None
 
         await database_client.patch(
             f"/feedback/{feedback_id}/processing",
-            json={
-                "transcript": result.get("transcript"),
-                "sentiment": result.get("sentiment"),
-                "keywords": result.get("keywords"),
-                "processing_status": "done",
-            },
+            json={"transcript": transcript, "processing_status": "done"},
         )
 
 

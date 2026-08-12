@@ -96,6 +96,19 @@ class Appointment(Base):
     )
 
 
+class Question(Base):
+    __tablename__ = "questions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hospital_id: Mapped[int] = mapped_column(ForeignKey("hospitals.id"), nullable=False)
+    text: Mapped[str] = mapped_column(String(500))
+    position: Mapped[int] = mapped_column(default=0, nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 
@@ -200,9 +213,7 @@ class Feedback(Base):
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("medical_categories.id"), nullable=True
     )
-    rating: Mapped[int] = mapped_column(nullable=False)
-    tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
-    text_comment: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    answers: Mapped[list[dict]] = mapped_column(JSONB, default=list)
     audio_file: Mapped[str | None] = mapped_column(String(500), nullable=True)
     transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
     sentiment: Mapped[FeedbackSentiment | None] = mapped_column(

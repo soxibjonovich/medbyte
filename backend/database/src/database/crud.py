@@ -20,6 +20,7 @@ from .models import (
     PaymentProvider,
     PaymentStatus,
     PushSubscription,
+    Question,
     User,
     UserRole,
 )
@@ -214,6 +215,74 @@ async def get_push_subscription_by_endpoint(
         select(PushSubscription).where(PushSubscription.endpoint == endpoint)
     )
     return result.scalar_one_or_none()
+
+
+async def get_push_subscription_by_id(
+    session: AsyncSession, subscription_id: int
+) -> PushSubscription | None:
+    return await session.get(PushSubscription, subscription_id)
+
+
+async def list_push_subscriptions(
+    session: AsyncSession, user_id: int | None = None, limit: int = 50, offset: int = 0
+) -> list[PushSubscription]:
+    stmt = select(PushSubscription).order_by(PushSubscription.created_at.desc())
+    if user_id is not None:
+        stmt = stmt.where(PushSubscription.user_id == user_id)
+    result = await session.execute(stmt.limit(limit).offset(offset))
+    return list(result.scalars().all())
+
+
+async def delete_push_subscription(session: AsyncSession, subscription: PushSubscription) -> None:
+    await session.delete(subscription)
+    await session.commit()
+
+
+async def list_questions(
+    session: AsyncSession, hospital_id: int | None = None, limit: int = 50, offset: int = 0
+) -> list[Question]:
+    stmt = select(Question).order_by(Question.position.asc(), Question.id.asc())
+    if hospital_id is not None:
+        stmt = stmt.where(Question.hospital_id == hospital_id)
+    result = await session.execute(stmt.limit(limit).offset(offset))
+    return list(result.scalars().all())
+
+
+async def get_question(session: AsyncSession, question_id: int) -> Question | None:
+    return await session.get(Question, question_id)
+
+
+async def create_question(
+    session: AsyncSession, hospital_id: int, text: str, position: int = 0
+) -> Question:
+    question = Question(hospital_id=hospital_id, text=text, position=position)
+    session.add(question)
+    await session.commit()
+    await session.refresh(question)
+    return question
+
+
+async def update_question(
+    session: AsyncSession,
+    question: Question,
+    text: str | None = None,
+    position: int | None = None,
+    is_active: bool | None = None,
+) -> Question:
+    if text is not None:
+        question.text = text
+    if position is not None:
+        question.position = position
+    if is_active is not None:
+        question.is_active = is_active
+    await session.commit()
+    await session.refresh(question)
+    return question
+
+
+async def delete_question(session: AsyncSession, question: Question) -> None:
+    await session.delete(question)
+    await session.commit()
 
 
 async def create_push_subscription(
@@ -596,12 +665,10 @@ async def create_feedback(
     session: AsyncSession,
     user_id: int,
     appointment_id: int,
-    rating: int,
     hospital_id: int | None = None,
     doctor_id: int | None = None,
     category_id: int | None = None,
-    tags: list[str] | None = None,
-    text_comment: str | None = None,
+    answers: list[dict] | None = None,
     audio_file: str | None = None,
 ) -> Feedback:
     feedback = Feedback(
@@ -610,9 +677,7 @@ async def create_feedback(
         hospital_id=hospital_id,
         doctor_id=doctor_id,
         category_id=category_id,
-        rating=rating,
-        tags=tags or [],
-        text_comment=text_comment,
+        answers=answers or [],
         audio_file=audio_file,
         processing_status=FeedbackProcessingStatus.pending,
     )

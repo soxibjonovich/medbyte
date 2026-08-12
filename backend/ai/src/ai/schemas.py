@@ -12,7 +12,6 @@ class ChatResponse(BaseModel):
     reply: str
 
 
-class AudioChatResponse(BaseModel):
+class AudioTranscriptResponse(BaseModel):
     conversation_id: str | None = None
     transcript: str
-    reply: str

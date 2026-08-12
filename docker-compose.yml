@@ -17,14 +17,37 @@ x-depends-on-database-and-rabbitmq: &depends-on-database-and-rabbitmq
   rabbitmq:
     condition: service_healthy
 
+x-depends-on-database-and-redis: &depends-on-database-and-redis
+  database:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+
+x-depends-on-database-rabbitmq-redis: &depends-on-database-rabbitmq-redis
+  database:
+    condition: service_healthy
+  rabbitmq:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+
 x-service-common: &service-common
   environment: &common-env
     DATABASE_SERVICE_URL: http://database:8005
     JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+    REDIS_URL: redis://redis:6379/0
   depends_on: *depends-on-database
   healthcheck: *healthcheck-8000
 
 services:
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   db:
     image: postgres:16-alpine
     environment:
@@ -44,6 +67,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    command: sh -c "rabbitmq-plugins enable rabbitmq_delayed_message_exchange --offline && rabbitmq-server"
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -79,6 +103,7 @@ services:
       - backend/auth/.env
     environment:
       <<: *common-env
+    depends_on: *depends-on-database-and-redis
     ports:
       - "8004:8000"
 
@@ -95,6 +120,10 @@ services:
     build:
       <<: *build-context
       dockerfile: backend/admin/Dockerfile
+    environment:
+      <<: *common-env
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on: *depends-on-database-and-rabbitmq
     ports:
       - "8007:8000"
 
@@ -107,7 +136,7 @@ services:
       <<: *common-env
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       AUDIO_STORAGE_DIR: /data/audio
-    depends_on: *depends-on-database-and-rabbitmq
+    depends_on: *depends-on-database-rabbitmq-redis
     volumes:
       - feedback_audio:/data/audio
     ports:
@@ -118,6 +147,14 @@ services:
     build:
       <<: *build-context
       dockerfile: backend/notifications/Dockerfile
+    environment:
+      <<: *common-env
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
+      PUSH_TTL_SECONDS: ${PUSH_TTL_SECONDS:-86400}
+    depends_on: *depends-on-database-and-rabbitmq
     ports:
       - "8009:8000"
 
@@ -157,11 +194,13 @@ services:
     build:
       <<: *build-context
       dockerfile: backend/stt-worker/Dockerfile
+    env_file:
+      - backend/ai/.env
     environment:
       <<: *common-env
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       AUDIO_STORAGE_DIR: /data/audio
-      STT_API_URL: ${STT_API_URL:-}
+      STT_BASE_URL: ${STT_BASE_URL:-https://service.muxlisa.uz/api/v1}
     depends_on: *depends-on-database-and-rabbitmq
     volumes:
       - feedback_audio:/data/audio:ro

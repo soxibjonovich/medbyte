@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock
 
 import pytest
 
-from auth import google_auth, security
+from auth import google_auth, rate_limit, security
 
 pytestmark = pytest.mark.asyncio
 
@@ -53,6 +54,24 @@ async def test_register_rejects_short_password(client, patch_db):
     patch_db.post.assert_not_called()
 
 
+async def test_register_rate_limited_returns_429(client, patch_db, monkeypatch):
+    """Wiring check only: verifies the dependency raises 429 when is_allowed()
+    reports the caller is over the limit. Doesn't need real Redis — the
+    module-level `is_allowed` is mocked directly (same as `_script is None`
+    fail-open, but forced to the "blocked" branch instead)."""
+    mock_allowed = AsyncMock(return_value=False)
+    monkeypatch.setattr(rate_limit, "is_allowed", mock_allowed)
+
+    resp = await client.post(
+        "/api/v1/auth/register",
+        json={"full_name": "Aziz Karimov", "username": "aziz_k", "password": "password123"},
+    )
+    assert resp.status_code == 429
+    assert resp.headers["retry-after"] == "60"
+    patch_db.post.assert_not_called()
+    mock_allowed.assert_awaited_once_with("register", "127.0.0.1", 5, 60)
+
+
 # --- login ------------------------------------------------------------
 
 
@@ -92,6 +111,48 @@ async def test_login_google_only_account_has_no_password_rejected(client, patch_
         "/api/v1/auth/login", json={"username": "aziz_k", "password": "anything"}
     )
     assert resp.status_code == 401
+
+
+async def test_login_rate_limited_by_ip_returns_429(client, patch_db, monkeypatch):
+    """The per-IP dependency (bucket="login") blocks before credentials are even checked."""
+    mock_allowed = AsyncMock(return_value=False)
+    monkeypatch.setattr(rate_limit, "is_allowed", mock_allowed)
+
+    resp = await client.post(
+        "/api/v1/auth/login", json={"username": "aziz_k", "password": "correct-password"}
+    )
+    assert resp.status_code == 429
+    assert resp.headers["retry-after"] == "60"
+    patch_db.get_or_none.assert_not_called()
+
+
+async def test_login_rate_limited_by_username_returns_429(client, patch_db, monkeypatch):
+    """The per-username check (bucket="login_user") blocks distributed brute-force
+    against one account, even when each individual IP is still under its own limit."""
+    password_hash = security.hash_password("correct-password")
+    patch_db.get_or_none.return_value = _user_record(password_hash=password_hash)
+
+    async def fake_is_allowed(bucket, identifier, limit, window_seconds):
+        return bucket != "login_user"
+
+    monkeypatch.setattr(rate_limit, "is_allowed", AsyncMock(side_effect=fake_is_allowed))
+
+    resp = await client.post(
+        "/api/v1/auth/login", json={"username": "aziz_k", "password": "correct-password"}
+    )
+    assert resp.status_code == 429
+    assert resp.headers["retry-after"] == "60"
+
+
+async def test_login_allowed_through_when_is_allowed_true(client, patch_db, monkeypatch):
+    password_hash = security.hash_password("correct-password")
+    patch_db.get_or_none.return_value = _user_record(password_hash=password_hash)
+    monkeypatch.setattr(rate_limit, "is_allowed", AsyncMock(return_value=True))
+
+    resp = await client.post(
+        "/api/v1/auth/login", json={"username": "aziz_k", "password": "correct-password"}
+    )
+    assert resp.status_code == 200
 
 
 # --- me ------------------------------------------------------------

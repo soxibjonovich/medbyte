@@ -3,7 +3,7 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, status
 
-from . import database_client
+from . import consumer, database_client
 from .deps import get_current_user
 from .schemas import Notification, PushSubscribeRequest, PushSubscription
 
@@ -11,7 +11,9 @@ from .schemas import Notification, PushSubscribeRequest, PushSubscription
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     database_client.init_client()
+    await consumer.start()
     yield
+    await consumer.stop()
     await database_client.close_client()
 
 

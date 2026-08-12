@@ -19,6 +19,7 @@ from .schemas import (
     CreateMedicalCategoryRequest,
     CreateNotificationRequest,
     CreatePushSubscriptionRequest,
+    CreateQuestionRequest,
     CreateUserRequest,
     DiscountResponse,
     DoctorResponse,
@@ -32,6 +33,7 @@ from .schemas import (
     NotificationResponse,
     PaymentResponse,
     PushSubscriptionResponse,
+    QuestionResponse,
     StatsOverview,
     UpdateAppointmentRequest,
     UpdateDiscountRequest,
@@ -41,6 +43,7 @@ from .schemas import (
     UpdateMedicalCategoryRequest,
     UpdateNotificationRequest,
     UpdatePaymentRequest,
+    UpdateQuestionRequest,
     UpdateUserRequest,
     UserResponse,
     UserWithSecret,
@@ -320,6 +323,30 @@ async def create_push_subscription_endpoint(
         p256dh=payload.p256dh,
         auth_key=payload.auth_key,
     )
+
+
+@app.get("/push-subscriptions", response_model=list[PushSubscriptionResponse])
+async def list_push_subscriptions_endpoint(
+    user_id: int | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = Depends(get_session),
+):
+    """Internal: notifications service fetches a user's Web Push subscriptions here."""
+    return await crud.list_push_subscriptions(
+        session, user_id=user_id, limit=limit, offset=offset
+    )
+
+
+@app.delete("/push-subscriptions/{subscription_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_push_subscription_endpoint(
+    subscription_id: int, session: AsyncSession = Depends(get_session)
+):
+    """Internal: notifications service removes subscriptions whose endpoints reject pushes."""
+    subscription = await crud.get_push_subscription_by_id(session, subscription_id)
+    if subscription is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="subscription not found")
+    await crud.delete_push_subscription(session, subscription)
 
 
 @app.post("/payments", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
@@ -636,6 +663,63 @@ async def delete_medical_category_endpoint(
     await crud.delete_medical_category(session, category)
 
 
+@app.get("/questions", response_model=list[QuestionResponse])
+async def list_questions_endpoint(
+    hospital_id: int | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = Depends(get_session),
+):
+    return await crud.list_questions(
+        session, hospital_id=hospital_id, limit=limit, offset=offset
+    )
+
+
+@app.post("/questions", response_model=QuestionResponse, status_code=status.HTTP_201_CREATED)
+async def create_question_endpoint(
+    payload: CreateQuestionRequest, session: AsyncSession = Depends(get_session)
+):
+    if await crud.get_hospital(session, payload.hospital_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="hospital not found")
+    return await crud.create_question(
+        session, hospital_id=payload.hospital_id, text=payload.text, position=payload.position
+    )
+
+
+@app.get("/questions/{question_id}", response_model=QuestionResponse)
+async def get_question_endpoint(question_id: int, session: AsyncSession = Depends(get_session)):
+    question = await crud.get_question(session, question_id)
+    if question is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="question not found")
+    return question
+
+
+@app.patch("/questions/{question_id}", response_model=QuestionResponse)
+async def update_question_endpoint(
+    question_id: int,
+    payload: UpdateQuestionRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    question = await crud.get_question(session, question_id)
+    if question is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="question not found")
+    return await crud.update_question(
+        session,
+        question,
+        text=payload.text,
+        position=payload.position,
+        is_active=payload.is_active,
+    )
+
+
+@app.delete("/questions/{question_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_question_endpoint(question_id: int, session: AsyncSession = Depends(get_session)):
+    question = await crud.get_question(session, question_id)
+    if question is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="question not found")
+    await crud.delete_question(session, question)
+
+
 @app.get("/feedback", response_model=list[FeedbackResponse])
 async def list_feedback_endpoint(
     user_id: int | None = Query(default=None),
@@ -676,9 +760,7 @@ async def create_feedback_endpoint(
         hospital_id=payload.hospital_id,
         doctor_id=payload.doctor_id,
         category_id=payload.category_id,
-        rating=payload.rating,
-        tags=payload.tags,
-        text_comment=payload.text_comment,
+        answers=[answer.model_dump() for answer in payload.answers],
         audio_file=payload.audio_file,
     )
 

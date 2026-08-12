@@ -156,3 +156,24 @@ class AuditLogEntry(BaseModel):
     entity: str
     entity_id: int | None
     created_at: datetime
+
+
+class Question(BaseModel):
+    id: int
+    hospital_id: int
+    text: str
+    position: int
+    is_active: bool
+    created_at: datetime
+
+
+class CreateQuestion(BaseModel):
+    hospital_id: int
+    text: str = Field(min_length=1, max_length=500)
+    position: int = Field(default=0, ge=0)
+
+
+class UpdateQuestion(BaseModel):
+    text: str | None = Field(default=None, min_length=1, max_length=500)
+    position: int | None = Field(default=None, ge=0)
+    is_active: bool | None = None

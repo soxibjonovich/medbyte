@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, FastAPI, Form, UploadFile
 
 from . import database_client, llm_client, stt_client
 from .deps import get_current_user
-from .schemas import AudioChatResponse, ChatRequest, ChatResponse
+from .schemas import AudioTranscriptResponse, ChatRequest, ChatResponse
 
 
 @asynccontextmanager
@@ -29,7 +29,7 @@ async def chat(payload: ChatRequest, current_user: dict = Depends(get_current_us
     return ChatResponse(conversation_id=payload.conversation_id, reply=reply)
 
 
-@router.post("/chat/audio", response_model=AudioChatResponse)
+@router.post("/chat/audio", response_model=AudioTranscriptResponse)
 async def chat_audio(
     audio: UploadFile,
     conversation_id: str | None = Form(default=None),
@@ -40,8 +40,7 @@ async def chat_audio(
     transcript = await stt_client.transcribe(
         audio_bytes, audio.filename or "audio", audio.content_type or "application/octet-stream"
     )
-    reply = await llm_client.chat(transcript, user_geo)
-    return AudioChatResponse(conversation_id=conversation_id, transcript=transcript, reply=reply)
+    return AudioTranscriptResponse(conversation_id=conversation_id, transcript=transcript)
 
 
 app.include_router(router)

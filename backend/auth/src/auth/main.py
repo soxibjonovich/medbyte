@@ -3,14 +3,16 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from . import database_client, google_auth, schemas, security
+from . import database_client, google_auth, rate_limit, schemas, security
 from .deps import get_current_user
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     database_client.init_client()
+    rate_limit.init_client()
     yield
+    await rate_limit.close_client()
     await database_client.close_client()
 
 
@@ -27,6 +29,7 @@ async def health():
     "/register",
     response_model=schemas.TokenResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit.rate_limit_dependency("register", limit=5, window_seconds=60))],
 )
 async def register_new_user(user: schemas.CreateUser):
     password_hash = security.hash_password(user.password)
@@ -47,8 +50,23 @@ async def register_new_user(user: schemas.CreateUser):
     )
 
 
-@router.post("/login", response_model=schemas.TokenResponse)
+@router.post(
+    "/login",
+    response_model=schemas.TokenResponse,
+    dependencies=[Depends(rate_limit.rate_limit_dependency("login", limit=10, window_seconds=60))],
+)
 async def login_user(credentials: schemas.LoginUser):
+    # Per-IP limiting (above) stops a single attacker hammering the endpoint;
+    # this per-username check additionally stops distributed brute-force
+    # (many IPs) targeting one account. Identifier comes from the parsed
+    # body, so it can't be expressed as a generic Depends() on Request alone.
+    if not await rate_limit.is_allowed("login_user", credentials.username, limit=5, window_seconds=60):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="rate limit exceeded, try again shortly",
+            headers={"Retry-After": "60"},
+        )
+
     record = await database_client.get_or_none(f"/users/by-username/{credentials.username}")
     if (
         record is None

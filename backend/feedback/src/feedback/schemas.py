@@ -1,10 +1,25 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 ProcessingStatus = Literal["pending", "processing", "done", "failed"]
 Sentiment = Literal["positive", "neutral", "negative"]
+
+
+class FeedbackAnswer(BaseModel):
+    question_id: int
+    question: str
+    rating: int | None = Field(default=None, ge=1, le=5)
+    comment: str | None = Field(default=None, max_length=2000)
+
+
+class Question(BaseModel):
+    id: int
+    hospital_id: int
+    text: str
+    position: int
+    is_active: bool
 
 
 class Feedback(BaseModel):
@@ -14,9 +29,7 @@ class Feedback(BaseModel):
     hospital_id: int | None
     doctor_id: int | None
     category_id: int | None
-    rating: int
-    tags: list[str]
-    text_comment: str | None
+    answers: list[FeedbackAnswer]
     audio_file: str | None
     transcript: str | None
     sentiment: Sentiment | None

@@ -1,3 +1,4 @@
+import json
 import os
 import uuid
 from contextlib import asynccontextmanager
@@ -7,9 +8,9 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Query, UploadFile, status
 
-from . import database_client, rabbitmq_client
+from . import database_client, rabbitmq_client, rate_limit
 from .deps import get_current_user, require_admin
-from .schemas import Feedback, FeedbackTranscript, Sentiment
+from .schemas import Feedback, FeedbackTranscript, Question, Sentiment
 
 AUDIO_STORAGE_DIR = Path(os.environ.get("AUDIO_STORAGE_DIR", "audio_uploads"))
 
@@ -18,9 +19,11 @@ AUDIO_STORAGE_DIR = Path(os.environ.get("AUDIO_STORAGE_DIR", "audio_uploads"))
 async def lifespan(_: FastAPI):
     AUDIO_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     database_client.init_client()
+    rate_limit.init_client()
     await rabbitmq_client.init_client()
     yield
     await rabbitmq_client.close_client()
+    await rate_limit.close_client()
     await database_client.close_client()
 
 
@@ -43,12 +46,17 @@ async def _store_audio(audio_file: UploadFile) -> str:
     return str(destination)
 
 
-@router.post("", response_model=Feedback, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=Feedback,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[
+        Depends(rate_limit.rate_limit_dependency("create_feedback", limit=20, window_seconds=60))
+    ],
+)
 async def create_feedback(
     appointment_id: int = Form(...),
-    rating: int = Form(..., ge=1, le=5),
-    tags: list[str] = Form(default=[]),
-    text_comment: str | None = Form(default=None, max_length=2000),
+    answers: str = Form(default="[]"),
     audio_file: UploadFile | None = None,
     current_user: dict = Depends(get_current_user),
 ):
@@ -58,6 +66,37 @@ async def create_feedback(
     if appointment["user_id"] != current_user["id"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="not your appointment"
+        )
+
+    try:
+        answers_payload = json.loads(answers)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="answers must be valid JSON")
+    if not isinstance(answers_payload, list):
+        raise HTTPException(status_code=422, detail="answers must be a list")
+
+    question_map = {}
+    if appointment.get("hospital_id") is not None:
+        questions = await database_client.get_or_none(
+            f"/questions?hospital_id={appointment['hospital_id']}"
+        )
+        if questions:
+            question_map = {q["id"]: q["text"] for q in questions}
+
+    normalized_answers = []
+    for item in answers_payload:
+        try:
+            qid = int(item["question_id"])
+        except (KeyError, TypeError, ValueError):
+            raise HTTPException(status_code=422, detail="each answer requires a question_id")
+        question_text = question_map.get(qid) or item.get("question", "")
+        normalized_answers.append(
+            {
+                "question_id": qid,
+                "question": question_text,
+                "rating": item.get("rating"),
+                "comment": item.get("comment"),
+            }
         )
 
     category_id = None
@@ -76,9 +115,7 @@ async def create_feedback(
             "hospital_id": appointment.get("hospital_id"),
             "doctor_id": appointment.get("doctor_id"),
             "category_id": category_id,
-            "rating": rating,
-            "tags": tags,
-            "text_comment": text_comment,
+            "answers": normalized_answers,
             "audio_file": stored_audio_path,
         },
     )
@@ -87,6 +124,25 @@ async def create_feedback(
         await rabbitmq_client.publish_stt_job(created["id"], stored_audio_path)
 
     return created
+
+
+@router.get("/questions/{appointment_id}", response_model=list[Question])
+async def get_appointment_questions(
+    appointment_id: int, current_user: dict = Depends(get_current_user)
+):
+    appointment = await database_client.get_or_none(f"/appointments/{appointment_id}")
+    if appointment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="appointment not found")
+    if appointment["user_id"] != current_user["id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="not your appointment"
+        )
+    if appointment.get("hospital_id") is None:
+        return []
+    questions = await database_client.get_or_none(
+        f"/questions?hospital_id={appointment['hospital_id']}"
+    )
+    return questions or []
 
 
 @router.get("/{feedback_id}", response_model=Feedback)

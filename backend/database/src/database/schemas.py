@@ -307,6 +307,36 @@ class UpdateDoctorRequest(BaseModel):
     experience_years: int | None = Field(default=None, ge=0)
 
 
+class QuestionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    hospital_id: int
+    text: str
+    position: int
+    is_active: bool
+    created_at: datetime
+
+
+class CreateQuestionRequest(BaseModel):
+    hospital_id: int
+    text: str = Field(min_length=1, max_length=500)
+    position: int = Field(default=0, ge=0)
+
+
+class UpdateQuestionRequest(BaseModel):
+    text: str | None = Field(default=None, min_length=1, max_length=500)
+    position: int | None = Field(default=None, ge=0)
+    is_active: bool | None = None
+
+
+class FeedbackAnswer(BaseModel):
+    question_id: int
+    question: str
+    rating: int | None = Field(default=None, ge=1, le=5)
+    comment: str | None = Field(default=None, max_length=2000)
+
+
 class FeedbackResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -316,9 +346,7 @@ class FeedbackResponse(BaseModel):
     hospital_id: int | None
     doctor_id: int | None
     category_id: int | None
-    rating: int
-    tags: list[str]
-    text_comment: str | None
+    answers: list[FeedbackAnswer]
     audio_file: str | None
     transcript: str | None
     sentiment: FeedbackSentiment | None
@@ -342,9 +370,7 @@ class CreateFeedbackRequest(BaseModel):
     hospital_id: int | None = None
     doctor_id: int | None = None
     category_id: int | None = None
-    rating: int = Field(ge=1, le=5)
-    tags: list[str] = Field(default_factory=list)
-    text_comment: str | None = Field(default=None, max_length=2000)
+    answers: list[FeedbackAnswer] = Field(default_factory=list)
     audio_file: str | None = None
 
 
